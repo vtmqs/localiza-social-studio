@@ -59,15 +59,19 @@ export default async function handler(req, res) {
 
   try {
     let geminiRes = await callGemini(!!useSearch);
+    let searched = !!useSearch;
 
     // Se a busca falhar (ex: grounding não disponível nessa chave/conta),
     // tenta de novo sem busca em vez de simplesmente devolver erro.
+    // Isso é sinalizado ao front via "searched: false", pra ele NUNCA tratar
+    // o resultado como se fosse baseado em busca real quando não foi.
     if (!geminiRes.ok && useSearch) {
       const firstErrText = await geminiRes.text();
       console.error("Erro Gemini (com busca):", firstErrText);
       const retryRes = await callGemini(false);
       if (retryRes.ok) {
         geminiRes = retryRes;
+        searched = false;
       } else {
         res.status(geminiRes.status || 500).json({
           error: `Erro do Gemini (com busca): ${firstErrText}`,
@@ -92,7 +96,15 @@ export default async function handler(req, res) {
       if (p.text) text += p.text;
     }
 
-    res.status(200).json({ text });
+    // Extrai as fontes REAIS retornadas pela busca (grounding), não o que o
+    // texto do modelo diz que encontrou. São usadas pra validar URLs no front
+    // e evitar link inventado.
+    const chunks = data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = chunks
+      .map((c) => ({ url: c?.web?.uri, title: c?.web?.title }))
+      .filter((s) => s.url);
+
+    res.status(200).json({ text, searched, sources });
   } catch (e) {
     res.status(500).json({ error: `Falha ao chamar o Gemini: ${e.message}` });
   }

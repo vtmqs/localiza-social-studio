@@ -134,7 +134,7 @@ async function callAI({ system, prompt, useSearch }) {
     throw new Error(`Falha na chamada ao backend (${res.status}): ${errBody}`);
   }
   const data = await res.json();
-  return data.text || "";
+  return { text: data.text || "", sources: data.sources || [], searched: !!data.searched };
 }
 
 const storage = {
@@ -597,7 +597,7 @@ export default function App() {
       const system =
         "Você é um analista de social media que faz benchmark no Brasil. Responda SOMENTE com um array JSON de 5 a 8 strings em português do Brasil, cada uma um insight objetivo sobre tom, formato, uso de hashtags ou linhas editoriais. Sem markdown, sem texto fora do array.";
       const prompt = `BU: ${bu.label} (${bu.sub}), do grupo Localiza.\nConcorrentes diretos a analisar (usar pra entender posicionamento, nunca copiar tom): ${concorrentesTxt}\nInspirações de tom/formato (usar como referência direta de como escrever, mesmo sendo de outro setor): ${inspiracoesTxt}\n\nPesquise na web as redes sociais (Instagram, LinkedIn, TikTok, YouTube) desses perfis/marcas e identifique padrões de tom de voz, formato de legenda, uso de hashtags e temas que geram mais engajamento. Diferencie insights vindos de concorrentes (positioning) dos vindos de inspirações (tom/formato direto). Retorne um array JSON de insights curtos e acionáveis em português do Brasil.`;
-      const text = await callAI({ system, prompt, useSearch: true });
+      const { text } = await callAI({ system, prompt, useSearch: true });
       const insights = extractJSON(text);
       const insightsText = Array.isArray(insights) ? insights.map((i) => `• ${i}`).join("\n") : "";
       updateFormField("insights", insightsText);
@@ -620,7 +620,7 @@ export default function App() {
       const system =
         "Você é um estrategista de conteúdo e SEO para redes sociais no Brasil. Responda SOMENTE com um array JSON de strings, sem markdown, sem explicações, sem texto antes ou depois. Cada string precisa ser uma palavra-chave ou expressão completa e com sentido, do jeito que alguém realmente buscaria ou usaria numa legenda, nunca um termo solto, truncado ou sem contexto.";
       const prompt = `Marca/BU: ${bu.label} (${bu.sub}), do grupo Localiza.\nTópico/conteúdo do post: ${baseTexto}\n\nPesquise na web e sugira palavras-chave relevantes pra esse post, combinando três grupos: (1) as específicas e diretas sobre o tema do post, (2) variações e termos similares/semanticamente relacionados que as pessoas também buscam sobre esse mesmo assunto, e (3) termos mais amplos que conectem o tema à marca ${bu.label} (${bu.sub}), mesmo que não sejam a busca exata. Não se limite ao termo literal do tópico, mas cada sugestão precisa fazer sentido sozinha como expressão completa. Retorne de 8 a 12 palavras-chave em português do Brasil.`;
-      const text = await callAI({ system, prompt, useSearch: true });
+      const { text } = await callAI({ system, prompt, useSearch: true });
       const kws = extractJSON(text);
       if (Array.isArray(kws)) {
         const termos = kws.map((k) => (typeof k === "string" ? k : k.termo)).filter(Boolean);
@@ -653,13 +653,39 @@ export default function App() {
       const outrasRedes = PLATFORMS.filter((p) => !draft.platforms.includes(p.id)).map((p) => p.label);
       const redesTexto = outrasRedes.length > 0 ? outrasRedes.join(", ") : "outras redes da Localiza";
       const system =
-        'Você é um assistente de social media que busca conteúdo já publicado pela Localiza para sugerir links cruzados. Responda SOMENTE com um array JSON, sem markdown, sem texto fora do array, no formato: [{"rede": "...", "titulo": "...", "url": "...", "dica": "..."}]. Se não encontrar nada relevante, responda com um array vazio [].';
-      const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).\nTópico do post: ${baseTexto}\nRede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}\n\nPesquise na web posts, vídeos ou conteúdos de blog já publicados pela Localiza em ${redesTexto} (ou no blog/site oficial da Localiza) que sejam relacionados a esse tópico. Não inclua conteúdo da própria rede em que este post vai ser publicado. Para cada resultado relevante, retorne a rede/canal, o título do conteúdo, a URL exata e uma dica curta de como linkar. Retorne no máximo 5 resultados, só os realmente relevantes.`;
-      const text = await callAI({ system, prompt, useSearch: true });
-      const items = extractJSON(text);
+        "Você é um assistente de pesquisa. Use a busca pra encontrar conteúdo real já publicado pela Localiza (Instagram, LinkedIn, TikTok, YouTube ou blog/site oficial) sobre o tópico pedido. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
+      const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).\nTópico do post: ${baseTexto}\nRede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}\n\nPesquise conteúdo já publicado pela Localiza em ${redesTexto} (ou no blog/site oficial) relacionado a esse tópico, que não seja da rede em que este post vai ser publicado.`;
+      const { sources, searched } = await callAI({ system, prompt, useSearch: true });
+
+      if (!searched) {
+        setError("A busca real não pôde ser feita agora (indisponível no momento). Tenta de novo em instantes; não vou sugerir link sem confirmar que é real.");
+        setDraft((d) => ({ ...d, relatedContent: [] }));
+        return;
+      }
+
+      const guessRede = (s) => {
+        const t = `${s.title || ""} ${s.url || ""}`.toLowerCase();
+        if (t.includes("instagram")) return "Instagram";
+        if (t.includes("linkedin")) return "LinkedIn";
+        if (t.includes("tiktok")) return "TikTok";
+        if (t.includes("youtube")) return "YouTube";
+        return "Blog/Site";
+      };
+      const platformsInPost = draft.platforms.map((p) => PLATFORMS.find((pl) => pl.id === p)?.label?.toLowerCase());
+
+      const items = (sources || [])
+        .filter((s) => s.url && s.title)
+        .map((s) => ({ rede: guessRede(s), titulo: s.title, url: s.url, dica: "Encontrado na busca sobre esse tema. Confira se faz sentido citar ou linkar." }))
+        .filter((it) => !platformsInPost.includes(it.rede.toLowerCase()))
+        .slice(0, 5);
+
+      if (items.length === 0) {
+        setError("A busca rodou de verdade, mas não achou nenhuma fonte real pra esse tópico. Tenta descrever o tópico de outro jeito.");
+      }
+
       setDraft((d) => ({
         ...d,
-        relatedContent: Array.isArray(items) ? items.map((it) => ({ ...it, selected: true })) : [],
+        relatedContent: items.map((it) => ({ ...it, selected: true })),
       }));
     } catch (e) {
       setError("Não consegui buscar conteúdo relacionado agora. Tenta de novo em instantes.");
@@ -758,7 +784,7 @@ ${draft.platforms.map((pl) => `- ${pl}: ${platformNotes[pl]}`).join("\n")}
 
 Crie a legenda do zero pra cada plataforma solicitada.`;
 
-      const text = await callAI({ system, prompt, useSearch: false });
+      const { text } = await callAI({ system, prompt, useSearch: false });
       const parsed = sanitizeResults(extractJSON(text));
       setResults(parsed);
     } catch (e) {
@@ -819,7 +845,7 @@ ${draft.platforms.map((pl) => `- ${pl}: ${platformNotes[pl]}`).join("\n")}
 
 Adapte e otimize a legenda acima pra cada plataforma solicitada.`;
 
-      const text = await callAI({ system, prompt, useSearch: false });
+      const { text } = await callAI({ system, prompt, useSearch: false });
       const parsed = sanitizeResults(extractJSON(text));
       setResults(parsed);
     } catch (e) {
@@ -848,7 +874,7 @@ Eixo editorial: ${p.eixo || "não definido"}
 Fio condutor: ${p.fioCondutor || "não definido"}
 
 Avalie "seoScore" e "toneScore".`;
-      const text = await callAI({ system, prompt, useSearch: false });
+      const { text } = await callAI({ system, prompt, useSearch: false });
       const scores = extractJSON(text);
       setResults((prev) => ({
         ...prev,
