@@ -1573,7 +1573,7 @@ Avalie "seoScore" e "toneScore".`;
                     Buscar conteúdo relacionado nas outras redes da Localiza
                   </button>
                   <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: MUTED }}>
-                    Marca os que fazem sentido. A URL do que estiver marcado entra automaticamente no texto da legenda.
+                    Marque os que fazem sentido. A URL do que estiver marcado entra automaticamente no texto da legenda.
                   </p>
 
                   {draft.relatedContent.length > 0 && (
