@@ -344,16 +344,68 @@ function ScoreRing({ label, value }) {
 
 const APP_PASSWORD = "conteudo2026localiza";
 
+// Hash simples da senha pessoal (não é criptografia bancária, mas evita
+// guardar a senha em texto puro no servidor)
+async function hashPassword(pwd) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+}
+
+async function storageAPI(body) {
+  const r = await fetch("/api/storage", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+
 export default function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
 
+  // Usuário cadastrado
+  const [currentUser, setCurrentUser] = useState(null); // { name, hash }
+  const [showRegister, setShowRegister] = useState(false);
+  const [regName, setRegName] = useState("");
+  const [regPwd, setRegPwd] = useState("");
+  const [regError, setRegError] = useState("");
+  const [regLoading, setRegLoading] = useState(false);
+
   useEffect(() => {
     storage.get("app-unlocked").then((v) => {
       if (v === "true") setUnlocked(true);
     });
+    // Carrega usuário salvo localmente
+    storage.get("current-user").then((v) => {
+      if (v) setCurrentUser(JSON.parse(v));
+    });
   }, []);
+
+  // Quando desbloqueado mas sem usuário cadastrado, mostra tela de cadastro
+  useEffect(() => {
+    if (unlocked && !currentUser) setShowRegister(true);
+  }, [unlocked, currentUser]);
+
+  async function handleRegister() {
+    if (!regName.trim()) { setRegError("Digite seu nome."); return; }
+    if (regPwd.length < 6) { setRegError("A senha precisa ter pelo menos 6 caracteres."); return; }
+    setRegLoading(true);
+    setRegError("");
+    try {
+      const hash = await hashPassword(regPwd);
+      const data = await storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash });
+      const user = { name: regName.trim(), hash };
+      setCurrentUser(user);
+      await storage.set("current-user", JSON.stringify(user));
+      setShowRegister(false);
+    } catch (e) {
+      setRegError("Erro ao cadastrar. Tenta de novo.");
+    } finally {
+      setRegLoading(false);
+    }
+  }
 
   const [screen, setScreen] = useState("home");
   const [activeBU, setActiveBU] = useState(null);
@@ -394,16 +446,25 @@ export default function App() {
 
   const loadPresets = useCallback(async (buId) => {
     try {
-      const result = await storage.get(`style-presets:${buId}`);
-      const parsed = result ? JSON.parse(result) : [];
-      const normalized = Array.isArray(parsed) ? parsed.map(normalizePreset) : [];
-      setPresets((prev) => ({ ...prev, [buId]: normalized }));
+      // Carrega estilos públicos do KV
+      const pubData = await storageAPI({ action: "listPublicPresets", bu: buId });
+      const pubList = (pubData.presets || []).map(normalizePreset);
+
+      // Carrega estilos privados do usuário atual (se logado)
+      let privList = [];
+      if (currentUser?.hash) {
+        const privData = await storageAPI({ action: "listPrivatePresets", bu: buId, userHash: currentUser.hash });
+        privList = (privData.presets || []).map(normalizePreset);
+      }
+
+      const all = [...pubList, ...privList];
+      setPresets((prev) => ({ ...prev, [buId]: all }));
     } catch (e) {
       setPresets((prev) => ({ ...prev, [buId]: [] }));
     } finally {
       setPresetsLoaded((prev) => ({ ...prev, [buId]: true }));
     }
-  }, []);
+  }, [currentUser]);
 
   const loadLibrary = useCallback(async (buId) => {
     try {
@@ -463,6 +524,9 @@ export default function App() {
     setFormPreset((prev) => ({ ...prev, [field]: value }));
   };
 
+  // Estado de visibilidade ao salvar estilo
+  const [presetVisibility, setPresetVisibility] = useState("public");
+
   const savePreset = async () => {
     if (!formPreset.title.trim()) {
       setTitleError(true);
@@ -472,17 +536,34 @@ export default function App() {
     setSaving(true);
     try {
       const list = presets[activeBU] || [];
-      let updated;
       let savedId;
+      let preset;
       if (editingId === "new" || !formPreset.id) {
         savedId = `${Date.now()}`;
-        const newPreset = { ...formPreset, id: savedId };
-        updated = [...list, newPreset];
+        preset = {
+          ...formPreset,
+          id: savedId,
+          createdBy: currentUser?.name || "Anônimo",
+          userHash: currentUser?.hash || null,
+          visibility: presetVisibility,
+          createdAt: new Date().toISOString(),
+        };
       } else {
         savedId = formPreset.id;
-        updated = list.map((p) => (p.id === formPreset.id ? formPreset : p));
+        preset = { ...formPreset, updatedAt: new Date().toISOString() };
       }
-      await storage.set(`style-presets:${activeBU}`, JSON.stringify(updated));
+
+      await storageAPI({
+        action: "savePreset",
+        bu: activeBU,
+        userHash: currentUser?.hash,
+        preset,
+        visibility: preset.visibility || presetVisibility,
+      });
+
+      // Atualiza lista local
+      const idx = list.findIndex((p) => p.id === savedId);
+      const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
       setPresets((prev) => ({ ...prev, [activeBU]: updated }));
       setEditingId(savedId);
       setFormPreset(updated.find((p) => p.id === savedId));
@@ -499,8 +580,15 @@ export default function App() {
   const deletePreset = async (id) => {
     try {
       const list = presets[activeBU] || [];
+      const preset = list.find((p) => p.id === id);
+      await storageAPI({
+        action: "deletePreset",
+        bu: activeBU,
+        userHash: currentUser?.hash,
+        presetId: id,
+        visibility: preset?.visibility || "public",
+      });
       const updated = list.filter((p) => p.id !== id);
-      await storage.set(`style-presets:${activeBU}`, JSON.stringify(updated));
       setPresets((prev) => ({ ...prev, [activeBU]: updated }));
       if (editingId === id) {
         if (updated.length > 0) selectPresetForEdit(updated[0]);
@@ -1096,6 +1184,52 @@ Avalie "seoScore" e "toneScore".`;
     );
   }
 
+  // ---------- CADASTRO ----------
+  if (unlocked && showRegister) {
+    return (
+      <div
+        translate="no"
+        className="min-h-screen flex items-center justify-center px-6 notranslate"
+        style={{ background: `linear-gradient(160deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)`, fontFamily: "system-ui, sans-serif" }}
+      >
+        <GlobalStyle />
+        <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
+          <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">Criar seu perfil</h1>
+          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>Preencha pra começar. Esses dados ficam salvos pra você não precisar repetir.</p>
+          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Seu nome</label>
+          <input
+            type="text"
+            value={regName}
+            onChange={(e) => { setRegName(e.target.value); setRegError(""); }}
+            placeholder="Ex: Vitória"
+            className={inputClass}
+            style={{ marginBottom: 12 }}
+          />
+          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
+          <input
+            type="password"
+            value={regPwd}
+            onChange={(e) => { setRegPwd(e.target.value); setRegError(""); }}
+            placeholder="Mínimo 6 caracteres"
+            className={inputClass}
+          />
+          <p className="text-[11px] mt-1.5 mb-4" style={{ color: "#8A6A1F" }}>
+            Use uma senha que você não usa em nenhum outro lugar, pois ela protege seus estilos privados nesta ferramenta.
+          </p>
+          {regError && <p className="text-xs mb-3" style={{ color: "#C0402A" }}>{regError}</p>}
+          <button
+            onClick={handleRegister}
+            disabled={regLoading}
+            style={{ background: GREEN }}
+            className="w-full text-white text-sm font-medium rounded-lg py-2.5 hover:opacity-90 transition-opacity disabled:opacity-60"
+          >
+            {regLoading ? "Criando..." : "Criar perfil e entrar"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ---------- HOME ----------
   if (screen === "home") {
     return (
@@ -1198,6 +1332,13 @@ Avalie "seoScore" e "toneScore".`;
             Estilo geral da marca
           </button>
           <button
+            onClick={() => setPage("presets-list")}
+            className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "presets-list" ? "active" : "text-white/85"}`}
+          >
+            <Users size={15} />
+            Estilos criados
+          </button>
+          <button
             onClick={() => setPage("library")}
             className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "library" ? "active" : "text-white/85"}`}
           >
@@ -1207,6 +1348,12 @@ Avalie "seoScore" e "toneScore".`;
         </nav>
 
         <div className="mt-auto px-6 py-6">
+          {currentUser && (
+            <div className="mb-4 text-white/60 text-[11px]">
+              <span className="text-white/40">Logado como </span>
+              <span className="text-white/80 font-medium">{currentUser.name}</span>
+            </div>
+          )}
           <p className="text-white/45 text-[10px] font-semibold uppercase tracking-wider mb-2.5">Outras BUs</p>
           <div className="space-y-1.5">
             {BUS.filter((b) => b.id !== activeBU).map((b) => (
@@ -1481,6 +1628,29 @@ Avalie "seoScore" e "toneScore".`;
                     </div>
                   )}
 
+                  <div className="mb-4">
+                    <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>Visibilidade do estilo</label>
+                    <div className="flex gap-2">
+                      {[
+                        { id: "public", label: "Público", desc: "Todos do time veem" },
+                        { id: "private", label: "Privado", desc: "Só você vê" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setPresetVisibility(opt.id)}
+                          disabled={editingId !== "new" && !!formPreset.id}
+                          className="flex-1 text-xs font-medium rounded-lg py-2 px-3 border text-left disabled:opacity-50"
+                          style={presetVisibility === opt.id
+                            ? { background: GREEN, color: "#FFF", borderColor: GREEN }
+                            : { background: "#FFF", color: MUTED, borderColor: BORDER }}
+                        >
+                          <div className="font-semibold">{opt.label}</div>
+                          <div className="opacity-75">{opt.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <button
                     onClick={savePreset}
                     disabled={saving}
@@ -1492,6 +1662,60 @@ Avalie "seoScore" e "toneScore".`;
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {page === "presets-list" && (
+            <div>
+              <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Estilos criados</h2>
+              <p className="text-sm mb-5" style={{ color: MUTED }}>Clique em um estilo pra usá-lo na geração de legendas.</p>
+              {buPresets.length === 0 ? (
+                <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo criado ainda pra {bu.label}. Crie o primeiro em "Estilo geral da marca".</p>
+              ) : (
+                <div className="space-y-3">
+                  {buPresets.map((p) => {
+                    const isOwner = p.userHash && p.userHash === currentUser?.hash;
+                    const isSelected = draft.presetId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        className="ls-card bg-white border rounded-xl p-4 cursor-pointer"
+                        style={{ borderColor: isSelected ? GREEN : BORDER, boxShadow: isSelected ? `0 0 0 2px ${GREEN}22` : undefined }}
+                        onClick={() => setDraft((d) => ({ ...d, presetId: p.id }))}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{p.title}</p>
+                            <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                              Criado por <span className="font-medium">{p.createdBy || "Anônimo"}</span>
+                              {p.visibility === "private" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#F0F4F3", color: MUTED }}>Privado</span>}
+                            </p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0">
+                            {(isOwner || !p.userHash) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); selectPresetForEdit(p); setPage("style"); }}
+                                className="text-[11px] px-2 py-1 rounded border"
+                                style={{ borderColor: BORDER, color: MUTED }}
+                              >
+                                Editar
+                              </button>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDraft((d) => ({ ...d, presetId: p.id })); setPage("compose"); }}
+                              className="text-[11px] px-2 py-1 rounded text-white"
+                              style={{ background: GREEN }}
+                            >
+                              Usar
+                            </button>
+                          </div>
+                        </div>
+                        {p.regras && <p className="text-[11px] mt-2 line-clamp-2" style={{ color: MUTED }}>{p.regras}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
