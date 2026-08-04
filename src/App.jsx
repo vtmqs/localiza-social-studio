@@ -793,7 +793,7 @@ export default function App() {
 
     const urlInstr =
       urls.length > 0
-        ? `Inclua literalmente estas URLs no texto da legenda (não apenas mencione que existe conteúdo relacionado, escreva a URL por extenso em local que fizer sentido, tipo "saiba mais em ${urls[0]}"): ${urls.join(", ")}. Em redes que não aceitam link clicável no corpo (Instagram, TikTok), ainda assim escreva a URL e sinalize "link na bio".`
+        ? `Se houver URL pra incluir, coloque-a SEMPRE no final do texto, depois de toda a mensagem e antes das hashtags, assim: "Confira em: ${urls[0]}" ou "Saiba mais: ${urls[0]}". Nunca escreva "link na bio" nem mencione a URL no meio do texto. URLs a incluir: ${urls.join(", ")}.`
         : "Nenhuma URL selecionada para incluir.";
 
     return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, urlInstr };
@@ -816,8 +816,9 @@ export default function App() {
       const platformNotes = platformNotesFor(draft.length);
 
       const system = `Você é redator sênior de social media do grupo Localiza, especializado na BU ${bu.label} (${bu.sub}).
-Escreva como se fosse uma pessoa real do time escrevendo, nunca de forma genérica ou robotizada. Evite clichês de texto gerado por IA.
+Escreva como uma pessoa real do time criativa e apurada escreveria: com personalidade, ponto de vista, ritmo próprio. Evite qualquer clichê de texto gerado por IA (não abra com "Você sabia que", "Chegou a hora de", "Não perca tempo", "Está pronto para", "Descubra o segredo de" ou construções genéricas parecidas). Nunca escreva como press release nem como descrição de produto. Escreva como quem entende o assunto e tem algo real a dizer.
 REGRA ABSOLUTA E INEGOCIÁVEL: JAMAIS use travessão (—) em nenhuma parte de nenhuma legenda, em nenhuma hipótese. Use vírgula, ponto ou reformule a frase em vez disso.
+Cada legenda deve ter uma abertura forte e inesperada (um fato curioso, uma pergunta que provoca, uma observação que o leitor não esperava, uma cena que ele reconhece), um desenvolvimento que entregue valor real (dica prática, contexto, perspectiva), e um encerramento com CTA claro e humano.
 Estilo de referência usado: ${ctx.p.title || "nenhum estilo salvo selecionado"}
 Regras da marca: ${ctx.p.regras || "nenhuma regra específica definida"}
 Eixo editorial: ${ctx.p.eixo || "não definido"}
@@ -880,9 +881,8 @@ Crie a legenda do zero pra cada plataforma solicitada. Gere uma versão diferent
       const platformNotes = platformNotesFor(draft.length);
 
       const system = `Você é redator sênior de social media do grupo Localiza, especializado na BU ${bu.label} (${bu.sub}).
-Sua tarefa é OTIMIZAR uma legenda que já existe, não criar do zero. Preserve a mensagem central e a voz original o máximo possível, mas melhore o uso de palavras-chave (SEO), a aderência ao tom/regras da marca abaixo, e ajuste emojis/hashtags/extensão conforme as instruções.
-Evite clichês de texto gerado por IA.
-REGRA ABSOLUTA E INEGOCIÁVEL: JAMAIS use travessão (—) em nenhuma parte de nenhuma legenda, em nenhuma hipótese. Se a legenda original tiver travessão, remova e reescreva com vírgula, ponto ou outra construção.
+Sua tarefa é OTIMIZAR uma legenda que já existe, não criar do zero. Preserve a mensagem central e a voz original, mas melhore: abertura (deve ser forte, não genérica), ritmo, cobertura temática das palavras-chave, aderência ao tom da marca, e encerramento com CTA claro. Se a abertura original for fraca ou clichê, reescreva-a. Nunca produza algo que pareça texto gerado por IA.
+REGRA ABSOLUTA E INEGOCIÁVEL: JAMAIS use travessão (—) em nenhuma parte de nenhuma legenda. Se a legenda original tiver travessão, remova e reescreva com vírgula, ponto ou outra construção.
 Estilo de referência usado: ${ctx.p.title || "nenhum estilo salvo selecionado"}
 Regras da marca: ${ctx.p.regras || "nenhuma regra específica definida"}
 Eixo editorial: ${ctx.p.eixo || "não definido"}
