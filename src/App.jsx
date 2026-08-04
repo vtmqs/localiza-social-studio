@@ -661,14 +661,20 @@ export default function App() {
       };
       const buQuery = bySubdomain[activeBU] || "site:localiza.com";
 
-      // Em vez de pedir pra IA "decidir" pesquisar em vários lugares dentro de
-      // uma única chamada (na prática ela faz 1 busca só e desiste), disparamos
-      // várias buscas diretas e específicas em paralelo e juntamos os resultados.
+      // Enriquece a query com palavras-chave selecionadas pra busca ser mais
+      // temática e não trazer páginas genéricas da Localiza sem relação com o assunto.
+      const selectedKws = draft.keywords
+        .filter((k) => draft.keywordSelected?.[k.toLowerCase()] !== false)
+        .slice(0, 3)
+        .join(" ");
+      const queryBase = selectedKws ? `${baseTexto} ${selectedKws}` : baseTexto;
+
+      // Dispara várias buscas diretas e específicas em paralelo e junta os resultados.
       const buscas = [
-        `site:localiza.com ${baseTexto}`,
-        buQuery !== "site:localiza.com" ? `${buQuery} ${baseTexto}` : null,
-        `${baseTexto} Localiza site:instagram.com/localiza OR site:instagram.com/localizameoo`,
-        `${baseTexto} Localiza site:youtube.com/user/grupolocaliza OR site:tiktok.com/@voudelocaliza`,
+        `site:localiza.com ${queryBase}`,
+        buQuery !== "site:localiza.com" ? `${buQuery} ${queryBase}` : null,
+        `${queryBase} Localiza site:instagram.com/localiza OR site:instagram.com/localizameoo`,
+        `${queryBase} Localiza site:youtube.com/user/grupolocaliza OR site:tiktok.com/@voudelocaliza`,
       ].filter(Boolean);
 
       const system =
