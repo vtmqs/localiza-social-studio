@@ -777,7 +777,7 @@ export default function App() {
       .join("\n");
 
     const emojiInstr = draft.useEmojis
-      ? "Pode usar emojis com moderação, coerentes com a plataforma e o tom."
+      ? "OBRIGATÓRIO: inclua pelo menos 2 a 4 emojis relevantes espalhados de forma natural pelo texto da legenda (não só no final), coerentes com a plataforma e o tom. Uma legenda sem nenhum emoji quando isso está marcado como obrigatório está errada."
       : "Não use nenhum emoji no texto.";
     const hashtagInstr = draft.useHashtags
       ? 'Gere hashtags relevantes: no máximo 5, mas a quantidade ideal varia por post e por plataforma (pode ser 1, 2, 3, 4 ou 5); não use sempre o mesmo número, decida pela relevância real.'
