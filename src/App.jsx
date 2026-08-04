@@ -949,7 +949,8 @@ Avalie "seoScore" e "toneScore".`;
   if (!unlocked) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center px-6"
+        translate="no"
+        className="min-h-screen flex items-center justify-center px-6 notranslate"
         style={{
           background: `linear-gradient(160deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)`,
           fontFamily: "system-ui, sans-serif",
@@ -1012,7 +1013,8 @@ Avalie "seoScore" e "toneScore".`;
   if (screen === "home") {
     return (
       <div
-        className="min-h-screen flex flex-col relative overflow-hidden"
+        translate="no"
+        className="min-h-screen flex flex-col relative overflow-hidden notranslate"
         style={{
           background: `radial-gradient(1200px 600px at 85% -20%, rgba(120,222,31,0.14), transparent 55%), radial-gradient(800px 500px at -10% 100%, rgba(120,222,31,0.08), transparent 55%), linear-gradient(160deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)`,
           fontFamily: "system-ui, sans-serif",
@@ -1072,7 +1074,7 @@ Avalie "seoScore" e "toneScore".`;
 
   // ---------- WORKSPACE ----------
   return (
-    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
+    <div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
       <GlobalStyle />
       <aside className="w-full md:w-64 md:shrink-0 flex flex-col relative" style={{ background: `linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)` }}>
         <button onClick={() => setScreen("home")} className="ls-side-link flex items-center gap-2 px-6 py-5 text-white/75 text-xs font-medium">
