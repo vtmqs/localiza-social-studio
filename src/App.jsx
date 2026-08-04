@@ -28,6 +28,7 @@ import {
   Smile,
   Hash,
   Wand2,
+  RefreshCw,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -1922,6 +1923,21 @@ Avalie "seoScore" e "toneScore".`;
                       );
                     })}
                 </div>
+              )}
+
+              {results && (
+                <button
+                  onClick={() => {
+                    setResults(null);
+                    draft.mode === "novo" ? generateCaptions() : optimizeCaptions();
+                  }}
+                  disabled={genLoading}
+                  style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
+                  className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
+                >
+                  {genLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Gerar novamente
+                </button>
               )}
             </div>
           )}
