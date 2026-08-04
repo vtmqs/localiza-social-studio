@@ -375,6 +375,8 @@ export default function App() {
   const [genLoading, setGenLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
+  const [errorModal, setErrorModal] = useState("");
+  useEffect(() => { if (error) { setErrorModal(error); } }, [error]);
   const [copiedKey, setCopiedKey] = useState("");
   const [concorrenteInput, setConcorrenteInput] = useState("");
   const [concorrenteTipo, setConcorrenteTipo] = useState("concorrente");
@@ -1159,7 +1161,7 @@ Avalie "seoScore" e "toneScore".`;
 
   // ---------- WORKSPACE ----------
   return (
-    <div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
+    <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
       <GlobalStyle />
       <aside className="w-full md:w-64 md:shrink-0 flex flex-col relative" style={{ background: `linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)` }}>
         <button onClick={() => setScreen("home")} className="ls-side-link flex items-center gap-2 px-6 py-5 text-white/75 text-xs font-medium">
@@ -1899,17 +1901,18 @@ Avalie "seoScore" e "toneScore".`;
                             onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
                             className={`${inputClass} min-h-[100px]`}
                           />
-                          {p === "youtube" && r.titulo_youtube && (
+                          {p === "youtube" && (
                             <div className="mt-3">
                               <label className="text-xs font-semibold tracking-wide block mb-1" style={{ color: MUTED }}>Título sugerido (YouTube)</label>
                               <input
                                 type="text"
-                                value={r.titulo_youtube}
+                                value={r.titulo_youtube || ""}
                                 maxLength={100}
+                                placeholder="Título do vídeo (até 70 caracteres ideais)"
                                 onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: e.target.value } }))}
                                 className={inputClass}
                               />
-                              <p className="text-[11px] mt-1" style={{ color: r.titulo_youtube?.length > 70 ? "#C0402A" : MUTED }}>
+                              <p className="text-[11px] mt-1" style={{ color: (r.titulo_youtube?.length || 0) > 70 ? "#C0402A" : MUTED }}>
                                 {r.titulo_youtube?.length || 0}/70 caracteres ideais
                               </p>
                             </div>
@@ -1981,5 +1984,35 @@ Avalie "seoScore" e "toneScore".`;
         </div>
       </main>
     </div>
+
+    {/* Modal de erro */}
+    {errorModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center px-4"
+        style={{ background: "rgba(0,0,0,0.45)" }}
+        onClick={() => { setErrorModal(""); setError(""); }}
+      >
+        <div
+          className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start gap-3 mb-4">
+            <AlertCircle size={22} style={{ color: "#C0402A" }} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold mb-1" style={{ color: "#8A3A1F" }}>Algo deu errado</p>
+              <p className="text-sm" style={{ color: "#5B3A2F" }}>{errorModal}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setErrorModal(""); setError(""); }}
+            className="w-full text-sm font-medium rounded-lg py-2"
+            style={{ background: "#FBEDE7", color: "#8A3A1F" }}
+          >
+            Fechar
+          </button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
