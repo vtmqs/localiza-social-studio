@@ -785,7 +785,7 @@ export default function App() {
       .join("\n");
 
     const emojiInstr = draft.useEmojis
-      ? "OBRIGATÓRIO: inclua pelo menos 2 a 4 emojis relevantes espalhados de forma natural pelo texto da legenda (não só no final), coerentes com a plataforma e o tom. Uma legenda sem nenhum emoji quando isso está marcado como obrigatório está errada."
+      ? "OBRIGATÓRIO: inclua 2 a 4 emojis no texto, mas cada um precisa fazer sentido real no ponto em que aparece, como um reforço visual da ideia daquela frase específica, não como decoração jogada aleatoriamente. Coloque o emoji logo após a palavra ou frase que ele ilustra. Jamais abra a legenda com emoji, nunca use emoji genérico (🌟✨💡) sem contexto real. Exemplos do que NÃO fazer: 'Viaje com estilo 🌟 e conforto ✨'. Exemplos do que fazer: 'Mala arrumada? O carro você já garantiu 🧳' ou 'Seis destinos, uma só estrada, zero preocupação com combustível 🛣️'."
       : "Não use nenhum emoji no texto.";
     const hashtagInstr = draft.useHashtags
       ? 'Gere hashtags relevantes: no máximo 5, mas a quantidade ideal varia por post e por plataforma (pode ser 1, 2, 3, 4 ou 5); não use sempre o mesmo número, decida pela relevância real.'
@@ -836,11 +836,19 @@ ${ctx.urlInstr}
 
 PALAVRAS-CHAVE: incorpore o tema e a intenção das palavras-chave listadas de forma fluida e natural no texto, como uma pessoa real escreveria, nunca como lista, nunca colando o termo de forma mecânica. Adapte o termo ao contexto e ao tom da plataforma: se a keyword é "aluguel de carro para viajar", escreva "pra quem vai viajar de carro" ou "na hora de planejar a viagem com carro alugado", não o termo exato engessado. O objetivo é que o texto responda a intenção de busca de quem pesquisa esse tema, não que inclua o termo roboticamente.
 
+OTIMIZAÇÃO SEO PARA REDES SOCIAIS: escreva como um especialista em SEO e conteúdo faria, não só como redator. Isso significa:
+- Inclua a palavra-chave principal ou variação próxima nas primeiras 1 a 2 linhas da legenda (onde o algoritmo e o leitor dão mais peso).
+- Use variações semânticas naturais ao longo do texto (sinônimos, termos relacionados, perguntas que o público faz), não repita a mesma keyword várias vezes.
+- A estrutura da legenda deve responder a intenção de quem buscaria esse tema: quem pesquisa "aluguel de carro férias" quer saber como resolver, não só ler sobre o assunto.
+- No LinkedIn e YouTube, os primeiros 150 caracteres são indexados com mais peso: capriche na abertura tanto pro algoritmo quanto pro leitor.
+- No Instagram e TikTok, as hashtags ampliam o alcance semântico: use-as como extensão do SEO, não como decoração.
+- Não sacrifique o tom humano pelo SEO, mas não abra mão do SEO pelo tom: um especialista de verdade consegue os dois ao mesmo tempo.
+
 Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, cobertura temática das keywords e uso estratégico de hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves.`;
+{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "título até 70 chars, só preencher se plataforma for youtube", "seoScore": 0, "toneScore": 0}}
+Use exatamente os ids de plataforma fornecidos como chaves. Para a plataforma "youtube", inclua também "titulo_youtube" com um título otimizado de até 70 caracteres, com a keyword principal na frente, que seja clicável e gere curiosidade sem ser clickbait.`
 
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
@@ -898,11 +906,19 @@ ${ctx.urlInstr}
 
 PALAVRAS-CHAVE: ao otimizar, certifique-se de que o tema e a intenção das palavras-chave estejam presentes de forma fluida no texto, como uma pessoa real escreveria. Adapte o termo ao contexto, nunca cole o termo exato de forma mecânica se isso soar artificial. Reescreva frases onde fizer sentido pra cobrir o tema, sem sacrificar o tom.
 
+OTIMIZAÇÃO SEO PARA REDES SOCIAIS: otimize como um especialista em SEO e conteúdo faria:
+- Keyword principal ou variação próxima deve estar nas primeiras 1 a 2 linhas (onde o algoritmo e o leitor dão mais peso).
+- Use variações semânticas ao longo do texto (sinônimos, termos relacionados), não repita a mesma keyword várias vezes.
+- A estrutura deve responder a intenção de busca de quem pesquisaria esse tema.
+- No LinkedIn e YouTube, os primeiros 150 caracteres têm peso maior pro algoritmo: garanta que a abertura seja relevante também para indexação.
+- Hashtags no Instagram e TikTok como extensão semântica do SEO, não decoração.
+- Tom humano e SEO não são opostos: um especialista de verdade entrega os dois.
+
 Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, cobertura temática das keywords) e "toneScore" (0-100). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves.`;
+{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "título até 70 chars, só preencher se plataforma for youtube", "seoScore": 0, "toneScore": 0}}
+Use exatamente os ids de plataforma fornecidos como chaves. Para a plataforma "youtube", inclua também "titulo_youtube" com um título otimizado de até 70 caracteres, com a keyword principal na frente, que seja clicável e gere curiosidade sem ser clickbait.`
 
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
@@ -1883,6 +1899,21 @@ Avalie "seoScore" e "toneScore".`;
                             onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
                             className={`${inputClass} min-h-[100px]`}
                           />
+                          {p === "youtube" && r.titulo_youtube && (
+                            <div className="mt-3">
+                              <label className="text-xs font-semibold tracking-wide block mb-1" style={{ color: MUTED }}>Título sugerido (YouTube)</label>
+                              <input
+                                type="text"
+                                value={r.titulo_youtube}
+                                maxLength={100}
+                                onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: e.target.value } }))}
+                                className={inputClass}
+                              />
+                              <p className="text-[11px] mt-1" style={{ color: r.titulo_youtube?.length > 70 ? "#C0402A" : MUTED }}>
+                                {r.titulo_youtube?.length || 0}/70 caracteres ideais
+                              </p>
+                            </div>
+                          )}
                           <div className="flex flex-wrap gap-1.5 mt-3">
                             {(r.hashtags || []).map((h, i) => (
                               <Chip key={i} tone="accent">
