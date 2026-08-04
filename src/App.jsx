@@ -671,15 +671,24 @@ export default function App() {
       ];
 
       const system =
-        "Você é um assistente de pesquisa. Use a busca pra encontrar conteúdo real e específico (um post, vídeo ou artigo, não a home genérica) já publicado nos perfis e domínios oficiais da Localiza listados abaixo, sobre o tópico pedido. Nunca use resultado de site de terceiros, blog de turismo, notícia externa ou qualquer domínio fora da lista. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
+        "Você é um assistente de pesquisa com acesso a busca real na web. Faça várias buscas (não só uma) até encontrar conteúdo específico (um post, vídeo ou artigo real, não a home genérica) publicado nos canais oficiais da Localiza sobre o tópico pedido. Tente buscas como: 'site:localiza.com [tópico]', '[tópico] site:instagram.com/localizabrasil', '[tópico] Localiza site:youtube.com', e variações parecidas para os outros perfis. Só use resultado se a URL for realmente de um domínio ou perfil oficial da Localiza. Nunca use resultado de site de terceiros, blog de turismo, notícia externa ou concorrente. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
       const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).
 Tópico do post: ${baseTexto}
 Rede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}
 
-Domínios/perfis oficiais permitidos (use site: para restringir a busca a estes, e somente estes):
-${perfisOficiais.map((d) => `site:${d}`).join(" OR ")}
+Canais oficiais da Localiza para buscar (faça uma busca separada em cada um até achar algo, não desista na primeira tentativa vazia):
+- site:localiza.com (site principal, inclui /brasil/pt-br/viaje-de-carro e /brasil/pt-br/carros)
+- site:localizaco.com (institucional)
+- site:zarp.localiza.com
+- site:seminovos.localiza.com
+- site:meoo.localiza.com
+- instagram.com/localizabrasil
+- linkedin.com/company/localizaco
+- youtube.com/@localizabrasil
+- tiktok.com/@localizabrasil
+- facebook.com/localizabrasil
 
-Pesquise conteúdo específico já publicado pela Localiza em ${redesTexto} dentro desses domínios oficiais, relacionado a esse tópico, que não seja da rede em que este post vai ser publicado. Prefira posts/vídeos/artigos específicos, não páginas genéricas de entrada do site.`;
+Pesquise conteúdo específico relacionado a esse tópico em ${redesTexto}, que não seja da rede em que este post vai ser publicado. Prefira posts/vídeos/artigos específicos, não páginas genéricas de entrada do site.`;
       const { sources, searched, searchError } = await callAI({ system, prompt, useSearch: true });
 
       if (!searched) {
