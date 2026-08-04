@@ -134,7 +134,7 @@ async function callAI({ system, prompt, useSearch }) {
     throw new Error(`Falha na chamada ao backend (${res.status}): ${errBody}`);
   }
   const data = await res.json();
-  return { text: data.text || "", sources: data.sources || [], searched: !!data.searched };
+  return { text: data.text || "", sources: data.sources || [], searched: !!data.searched, searchError: data.searchError || "" };
 }
 
 const storage = {
@@ -655,10 +655,10 @@ export default function App() {
       const system =
         "Você é um assistente de pesquisa. Use a busca pra encontrar conteúdo real já publicado pela Localiza (Instagram, LinkedIn, TikTok, YouTube ou blog/site oficial) sobre o tópico pedido. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
       const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).\nTópico do post: ${baseTexto}\nRede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}\n\nPesquise conteúdo já publicado pela Localiza em ${redesTexto} (ou no blog/site oficial) relacionado a esse tópico, que não seja da rede em que este post vai ser publicado.`;
-      const { sources, searched } = await callAI({ system, prompt, useSearch: true });
+      const { sources, searched, searchError } = await callAI({ system, prompt, useSearch: true });
 
       if (!searched) {
-        setError("A busca real não pôde ser feita agora (indisponível no momento). Tenta de novo em instantes; não vou sugerir link sem confirmar que é real.");
+        setError(`A busca real não pôde ser feita agora. Motivo: ${searchError || "não informado"}`);
         setDraft((d) => ({ ...d, relatedContent: [] }));
         return;
       }
@@ -1662,7 +1662,17 @@ Avalie "seoScore" e "toneScore".`;
                     ))}
                   </div>
                   <p className="text-[11px] mt-1.5" style={{ color: MUTED }}>
-                    No Instagram, o padrão é curto mesmo — dá pra pedir mais fôlego em "Longa" se o post precisar.
+                    {(() => {
+                      const notes = {
+                        instagram: "no Instagram o padrão é curto",
+                        linkedin: "no LinkedIn dá pra escrever mais",
+                        tiktok: "no TikTok o ideal é bem direto",
+                        youtube: "no YouTube a descrição pode ser mais longa",
+                      };
+                      const parts = draft.platforms.map((p) => notes[p]).filter(Boolean);
+                      if (parts.length === 0) return "Escolha as redes acima pra ver a dica de tamanho ideal pra cada uma.";
+                      return `Pra rede selecionada, ${parts.join(", ")}. Pode pedir mais fôlego em "Longa" se o post precisar.`;
+                    })()}
                   </p>
                 </div>
 
