@@ -766,7 +766,9 @@ ${ctx.emojiInstr}
 ${ctx.hashtagInstr}
 ${ctx.urlInstr}
 
-Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, uso das keywords prioritárias e hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
+REGRA OBRIGATÓRIA SOBRE PALAVRAS-CHAVE: as palavras-chave listadas como "Palavras-chave/tópicos de referência" no pedido do usuário DEVEM aparecer, de forma literal e natural (sem soar forçado, sem virar lista), no texto de cada legenda, adaptando apenas para caber gramaticalmente na frase. Se houver mais de uma palavra-chave, distribua entre o corpo da legenda; pode repetir a mais importante mais de uma vez se fizer sentido. Isso é o que garante uma nota alta de "seoScore".
+
+Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, uso literal das keywords prioritárias e hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso: se uma keyword selecionada não aparecer no texto, o seoScore deve ser baixo.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
 {"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "seoScore": 0, "toneScore": 0}}
@@ -827,7 +829,9 @@ ${ctx.emojiInstr}
 ${ctx.hashtagInstr}
 ${ctx.urlInstr}
 
-Para cada plataforma, avalie a legenda otimizada em "seoScore" e "toneScore" (0-100 cada). Seja criterioso.
+REGRA OBRIGATÓRIA SOBRE PALAVRAS-CHAVE: as palavras-chave listadas como "Palavras-chave a priorizar" no pedido do usuário DEVEM aparecer, de forma literal e natural (sem soar forçado, sem virar lista), no texto de cada legenda otimizada, adaptando apenas para caber gramaticalmente na frase. Se a legenda original não tiver essas palavras, insira-as reescrevendo a frase onde fizer sentido.
+
+Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, uso literal das keywords prioritárias) e "toneScore" (0-100 cada). Seja criterioso: se uma keyword selecionada não aparecer no texto, o seoScore deve ser baixo.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
 {"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "seoScore": 0, "toneScore": 0}}
