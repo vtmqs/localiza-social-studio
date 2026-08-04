@@ -101,10 +101,47 @@ export default async function handler(req, res) {
     // Extrai as fontes REAIS retornadas pela busca (grounding), não o que o
     // texto do modelo diz que encontrou. São usadas pra validar URLs no front
     // e evitar link inventado.
+    //
+    // IMPORTANTE: a Gemini API não devolve a URL final da página encontrada,
+    // devolve um link de redirecionamento do Google
+    // (vertexaisearch.cloud.google.com/grounding-api-redirect/...). Por isso
+    // resolvemos cada link aqui, seguindo o redirecionamento, pra descobrir
+    // a URL real antes de mandar pro front (que usa isso pra validar domínio).
     const chunks = data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = chunks
+    const rawSources = chunks
       .map((c) => ({ url: c?.web?.uri, title: c?.web?.title }))
       .filter((s) => s.url);
+
+    async function resolveFinalUrl(url) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        // GET em vez de HEAD: alguns sites/CDNs bloqueiam ou tratam HEAD de
+        // forma diferente, o que fazia a resolução falhar silenciosamente.
+        const r = await fetch(url, {
+          method: "GET",
+          redirect: "follow",
+          signal: controller.signal,
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; LocalizaSocialStudioBot/1.0)" },
+        });
+        clearTimeout(timeout);
+        return r.url || null;
+      } catch (e) {
+        console.error("Falha ao resolver redirecionamento:", url, e.message);
+        return null;
+      }
+    }
+
+    const resolved = await Promise.all(
+      rawSources.map(async (s) => {
+        const finalUrl = await resolveFinalUrl(s.url);
+        // Se não conseguir resolver o link real, mantém o link original do
+        // Google como fallback (ainda clicável e ainda veio de busca real),
+        // mas sinaliza "resolved: false" pro front decidir como tratar.
+        return { url: finalUrl || s.url, title: s.title, resolved: !!finalUrl };
+      })
+    );
+    const sources = resolved.filter(Boolean);
 
     res.status(200).json({ text, searched, sources, searchError });
   } catch (e) {

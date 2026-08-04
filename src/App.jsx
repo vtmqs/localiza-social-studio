@@ -686,15 +686,21 @@ export default function App() {
 
       const todasFontes = respostas.flatMap((r) => r.sources || []);
 
-      const isOficial = (url) => {
+      const isOficial = (s) => {
+        const tituloTemLocaliza = (s.title || "").toLowerCase().includes("localiza");
         try {
-          const host = new URL(url).hostname.replace(/^www\./, "");
+          const host = new URL(s.url).hostname.replace(/^www\./, "");
           if (host.includes("localiza")) return true;
+          // Se não deu pra resolver o link real (ainda é o redirecionamento
+          // do Google), só aceita se o título já mencionar Localiza.
+          if (s.resolved === false) return tituloTemLocaliza;
           const extras = ["medium.com", "llz.me", "instagram.com", "facebook.com", "linkedin.com", "youtube.com", "tiktok.com", "x.com", "twitter.com", "spotify.com"];
           if (!extras.includes(host)) return false;
-          // pra domínios genéricos (redes sociais), exige que a URL contenha o perfil oficial
-          const u = url.toLowerCase();
+          // Posts/vídeos de rede social não têm o nome da marca na URL (ex:
+          // instagram.com/p/abc123), então o título é o sinal mais confiável aqui.
+          const u = s.url.toLowerCase();
           return (
+            tituloTemLocaliza ||
             u.includes("/localiza") ||
             u.includes("grupolocaliza") ||
             u.includes("voudelocaliza") ||
@@ -702,7 +708,7 @@ export default function App() {
             u.includes("localizalabs")
           );
         } catch {
-          return false;
+          return tituloTemLocaliza;
         }
       };
 
@@ -722,7 +728,7 @@ export default function App() {
 
       const vistos = new Set();
       const items = todasFontes
-        .filter((s) => s.url && s.title && isOficial(s.url))
+        .filter((s) => s.url && s.title && isOficial(s))
         .filter((s) => {
           if (vistos.has(s.url)) return false;
           vistos.add(s.url);
