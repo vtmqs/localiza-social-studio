@@ -574,7 +574,7 @@ export default function App() {
   const runBenchmark = async () => {
     const lista = formPreset.concorrentes || [];
     if (lista.length === 0) {
-      setError("Adiciona pelo menos 1 referência/concorrente antes de rodar o benchmark.");
+      setError("Adicione pelo menos 1 referência/concorrente antes de rodar o benchmark.");
       return;
     }
     setError("");
@@ -700,7 +700,7 @@ export default function App() {
       return;
     }
     if (draft.platforms.length === 0) {
-      setError("Seleciona pelo menos uma rede social.");
+      setError("Selecione pelo menos uma rede social.");
       return;
     }
     setError("");
@@ -758,11 +758,11 @@ Crie a legenda do zero pra cada plataforma solicitada.`;
 
   const optimizeCaptions = async () => {
     if (!draft.existingCaption.trim()) {
-      setError("Cola a legenda atual antes de otimizar.");
+      setError("Cole a legenda atual antes de otimizar.");
       return;
     }
     if (draft.platforms.length === 0) {
-      setError("Seleciona pelo menos uma rede social.");
+      setError("Selecione pelo menos uma rede social.");
       return;
     }
     setError("");
@@ -1049,7 +1049,7 @@ Avalie "seoScore" e "toneScore".`;
                 <div className="space-y-1.5">
                   {buPresets.length === 0 && (
                     <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
-                      Nenhum estilo salvo ainda pra {bu.label}. Cria o primeiro ao lado.
+                      Nenhum estilo salvo ainda pra {bu.label}. Crie o primeiro ao lado.
                     </p>
                   )}
                   {buPresets.map((p) => (
@@ -1159,7 +1159,7 @@ Avalie "seoScore" e "toneScore".`;
                             addVocab();
                           }
                         }}
-                        placeholder="Digita uma expressão e aperta Enter"
+                        placeholder="Digite uma expressão e aperte Enter"
                         className={`${inputClass} flex-1`}
                       />
                       <button onClick={addVocab} className="ls-btn-ghost px-3 rounded-lg border bg-white" style={{ borderColor: BORDER, color: MUTED }} aria-label="Adicionar">
@@ -1450,7 +1450,7 @@ Avalie "seoScore" e "toneScore".`;
                         value={draft.existingCaption}
                         onChange={(e) => setDraft((d) => ({ ...d, existingCaption: e.target.value }))}
                         onBlur={handleTopicBlur}
-                        placeholder="Cola aqui a legenda que já existe, pra ferramenta melhorar SEO, tom e formato"
+                        placeholder="Cole aqui a legenda que já existe, pra ferramenta melhorar SEO, tom e formato"
                         className={`${inputClass} min-h-[90px]`}
                       />
                     </Field>
