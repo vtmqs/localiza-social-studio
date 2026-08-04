@@ -33,17 +33,16 @@ export default async function handler(req, res) {
 
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-  };
-  if (system) {
-    body.systemInstruction = { parts: [{ text: system }] };
-  }
-  if (useSearch) {
-    body.tools = [{ google_search: {} }];
-  }
-
-  try {
+  async function callGemini(withSearch) {
+    const body = {
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    };
+    if (system) {
+      body.systemInstruction = { parts: [{ text: system }] };
+    }
+    if (withSearch) {
+      body.tools = [{ google_search: {} }];
+    }
     const geminiRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
@@ -55,6 +54,26 @@ export default async function handler(req, res) {
         body: JSON.stringify(body),
       }
     );
+    return geminiRes;
+  }
+
+  try {
+    let geminiRes = await callGemini(!!useSearch);
+
+    // Se a busca falhar (ex: grounding não disponível nessa chave/conta),
+    // tenta de novo sem busca em vez de simplesmente devolver erro.
+    if (!geminiRes.ok && useSearch) {
+      const firstErrText = await geminiRes.text();
+      const retryRes = await callGemini(false);
+      if (retryRes.ok) {
+        geminiRes = retryRes;
+      } else {
+        res.status(geminiRes.status || 500).json({
+          error: `Erro do Gemini (com busca): ${firstErrText}`,
+        });
+        return;
+      }
+    }
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();

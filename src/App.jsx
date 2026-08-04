@@ -967,9 +967,9 @@ Avalie "seoScore" e "toneScore".`;
 
   // ---------- WORKSPACE ----------
   return (
-    <div className="min-h-screen flex" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
       <GlobalStyle />
-      <aside className="w-64 shrink-0 flex flex-col relative" style={{ background: `linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)` }}>
+      <aside className="w-full md:w-64 md:shrink-0 flex flex-col relative" style={{ background: `linear-gradient(180deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)` }}>
         <button onClick={() => setScreen("home")} className="ls-side-link flex items-center gap-2 px-6 py-5 text-white/75 text-xs font-medium">
           <ArrowLeft size={14} />
           Trocar BU
@@ -1025,7 +1025,7 @@ Avalie "seoScore" e "toneScore".`;
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 bg-white border-b px-8 py-4" style={{ borderColor: BORDER }}>
+        <div className="sticky top-0 z-10 bg-white border-b px-4 sm:px-8 py-4" style={{ borderColor: BORDER }}>
           <p className="text-[11px] font-medium tracking-wide" style={{ color: MUTED }}>
             {bu.label}
           </p>
@@ -1034,7 +1034,7 @@ Avalie "seoScore" e "toneScore".`;
           </h2>
         </div>
 
-        <div className="max-w-5xl mx-auto px-8 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
           {page === "style" && (
             <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6">
               <div>
