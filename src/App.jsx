@@ -341,7 +341,19 @@ function ScoreRing({ label, value }) {
   );
 }
 
+const APP_PASSWORD = "conteudo2026localiza";
+
 export default function App() {
+  const [unlocked, setUnlocked] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+
+  useEffect(() => {
+    storage.get("app-unlocked").then((v) => {
+      if (v === "true") setUnlocked(true);
+    });
+  }, []);
+
   const [screen, setScreen] = useState("home");
   const [activeBU, setActiveBU] = useState(null);
   const [page, setPage] = useState("compose");
@@ -902,6 +914,69 @@ Avalie "seoScore" e "toneScore".`;
   };
 
   const inputClass = "ls-input w-full text-sm border rounded-lg px-3 py-2.5 bg-white";
+
+  // ---------- SENHA ----------
+  if (!unlocked) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center px-6"
+        style={{
+          background: `linear-gradient(160deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)`,
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <GlobalStyle />
+        <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
+          <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">
+            Social Studio
+          </h1>
+          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>
+            Acesso restrito ao time de conteúdo
+          </p>
+          <input
+            type="password"
+            value={passwordInput}
+            onChange={(e) => {
+              setPasswordInput(e.target.value);
+              setPasswordError(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              if (passwordInput === APP_PASSWORD) {
+                storage.set("app-unlocked", "true");
+                setUnlocked(true);
+              } else {
+                setPasswordError(true);
+              }
+            }}
+            placeholder="Senha de acesso"
+            className={inputClass}
+            style={passwordError ? { borderColor: "#C0402A" } : {}}
+            autoFocus
+          />
+          {passwordError && (
+            <p className="text-xs mt-2" style={{ color: "#C0402A" }}>
+              Senha incorreta.
+            </p>
+          )}
+          <button
+            onClick={() => {
+              if (passwordInput === APP_PASSWORD) {
+                storage.set("app-unlocked", "true");
+                setUnlocked(true);
+              } else {
+                setPasswordError(true);
+              }
+            }}
+            style={{ background: GREEN }}
+            className="w-full text-white text-sm font-medium rounded-lg py-2.5 mt-4 hover:opacity-90 transition-opacity"
+          >
+            Entrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ---------- HOME ----------
   if (screen === "home") {
