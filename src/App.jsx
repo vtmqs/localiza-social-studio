@@ -660,6 +660,8 @@ export default function App() {
         "youtube.com/@localizabrasil",
         "tiktok.com/@localizabrasil",
         "localiza.com",
+        "localiza.com/brasil/pt-br/viaje-de-carro",
+        "localiza.com/brasil/pt-br/carros",
         "localizaco.com",
         "zarp.localiza.com",
         "seminovos.localiza.com",
@@ -689,6 +691,7 @@ Pesquise conteúdo específico já publicado pela Localiza em ${redesTexto} dent
       const isOficial = (url) => {
         try {
           const host = new URL(url).hostname.replace(/^www\./, "");
+          if (host.includes("localiza")) return true;
           return perfisOficiais.some((d) => host === d.split("/")[0] || host.endsWith(`.${d.split("/")[0]}`));
         } catch {
           return false;
