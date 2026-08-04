@@ -654,39 +654,61 @@ export default function App() {
       const redesTexto = outrasRedes.length > 0 ? outrasRedes.join(", ") : "outras redes da Localiza";
 
       const perfisOficiais = [
-        "instagram.com/localizabrasil",
-        "facebook.com/localizabrasil",
-        "linkedin.com/company/localizaco",
-        "youtube.com/@localizabrasil",
-        "tiktok.com/@localizabrasil",
+        // Domínios próprios (qualquer coisa *.localiza.com já é aceita por padrão, ver isOficial)
         "localiza.com",
-        "localiza.com/brasil/pt-br/viaje-de-carro",
-        "localiza.com/brasil/pt-br/carros",
         "localizaco.com",
-        "zarp.localiza.com",
+        "ri.localiza.com",
         "seminovos.localiza.com",
         "meoo.localiza.com",
+        "zarp.localiza.com",
         "frotas.localiza.com",
-        "imprensa.localiza.com",
+        "pesados.localiza.com",
+        "cliente.localiza.com",
+        "portalcarreira.localiza.com",
+        "liza.localiza.com",
+        "conheca.zarp.localiza.com",
+        "localiza.gupy.io",
+        // Domínios que NÃO contêm "localiza" no host, precisam estar na lista explícita
+        "medium.com/localizalabs",
+        "llz.me",
+        "localizahertz.com",
+        // Redes sociais oficiais
+        "instagram.com/localiza",
+        "instagram.com/localizameoo",
+        "facebook.com/localiza",
+        "linkedin.com/company/localiza",
+        "linkedin.com/company/localizaco",
+        "youtube.com/user/grupolocaliza",
+        "tiktok.com/@voudelocaliza",
+        "x.com/localizabr",
+        "twitter.com/localizabr",
+        "open.spotify.com/user/localizabr",
       ];
 
       const system =
-        "Você é um assistente de pesquisa com acesso a busca real na web. Faça várias buscas (não só uma) até encontrar conteúdo específico (um post, vídeo ou artigo real, não a home genérica) publicado nos canais oficiais da Localiza sobre o tópico pedido. Tente buscas como: 'site:localiza.com [tópico]', '[tópico] site:instagram.com/localizabrasil', '[tópico] Localiza site:youtube.com', e variações parecidas para os outros perfis. Só use resultado se a URL for realmente de um domínio ou perfil oficial da Localiza. Nunca use resultado de site de terceiros, blog de turismo, notícia externa ou concorrente. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
+        "Você é um assistente de pesquisa com acesso a busca real na web. Faça várias buscas (não só uma) até encontrar conteúdo específico (um post, vídeo ou artigo real, não a home genérica) publicado nos canais oficiais da Localiza sobre o tópico pedido. Tente buscas como: 'site:localiza.com [tópico]', '[tópico] site:instagram.com/localiza', '[tópico] Localiza site:youtube.com', e variações parecidas para os outros perfis. Só use resultado se a URL for realmente de um domínio ou perfil oficial da Localiza. Nunca use resultado de site de terceiros, blog de turismo, notícia externa ou concorrente. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
       const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).
 Tópico do post: ${baseTexto}
 Rede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}
 
 Canais oficiais da Localiza para buscar (faça uma busca separada em cada um até achar algo, não desista na primeira tentativa vazia):
-- site:localiza.com (site principal, inclui /brasil/pt-br/viaje-de-carro e /brasil/pt-br/carros)
+- site:localiza.com (site principal, inclui subpáginas como /brasil/pt-br/viaje-de-carro, /brasil/pt-br/carros, /brasil/pt-br/grupos-de-carros, /brasil/pt-br/ofertas)
 - site:localizaco.com (institucional)
-- site:zarp.localiza.com
-- site:seminovos.localiza.com
-- site:meoo.localiza.com
-- instagram.com/localizabrasil
+- site:ri.localiza.com (relações com investidores)
+- site:zarp.localiza.com (inclui /blog)
+- site:seminovos.localiza.com (inclui /carros)
+- site:meoo.localiza.com (inclui /blog)
+- site:frotas.localiza.com
+- site:pesados.localiza.com
+- site:medium.com/localizalabs (blog de tecnologia Localiza Labs)
+- instagram.com/localiza
+- instagram.com/localizameoo
+- facebook.com/localiza
+- linkedin.com/company/localiza
 - linkedin.com/company/localizaco
-- youtube.com/@localizabrasil
-- tiktok.com/@localizabrasil
-- facebook.com/localizabrasil
+- youtube.com/user/grupolocaliza
+- tiktok.com/@voudelocaliza
+- x.com/localizabr
 
 Pesquise conteúdo específico relacionado a esse tópico em ${redesTexto}, que não seja da rede em que este post vai ser publicado. Prefira posts/vídeos/artigos específicos, não páginas genéricas de entrada do site.`;
       const { sources, searched, searchError } = await callAI({ system, prompt, useSearch: true });
@@ -714,6 +736,9 @@ Pesquise conteúdo específico relacionado a esse tópico em ${redesTexto}, que 
         if (t.includes("tiktok")) return "TikTok";
         if (t.includes("youtube")) return "YouTube";
         if (t.includes("facebook")) return "Facebook";
+        if (t.includes("x.com") || t.includes("twitter")) return "X";
+        if (t.includes("spotify")) return "Spotify";
+        if (t.includes("medium.com")) return "Blog Localiza Labs";
         return "Blog/Site oficial";
       };
       const platformsInPost = draft.platforms.map((p) => PLATFORMS.find((pl) => pl.id === p)?.label?.toLowerCase());
