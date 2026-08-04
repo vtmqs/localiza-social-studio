@@ -652,9 +652,32 @@ export default function App() {
     try {
       const outrasRedes = PLATFORMS.filter((p) => !draft.platforms.includes(p.id)).map((p) => p.label);
       const redesTexto = outrasRedes.length > 0 ? outrasRedes.join(", ") : "outras redes da Localiza";
+
+      const perfisOficiais = [
+        "instagram.com/localizabrasil",
+        "facebook.com/localizabrasil",
+        "linkedin.com/company/localizaco",
+        "youtube.com/@localizabrasil",
+        "tiktok.com/@localizabrasil",
+        "localiza.com",
+        "localizaco.com",
+        "zarp.localiza.com",
+        "seminovos.localiza.com",
+        "meoo.localiza.com",
+        "frotas.localiza.com",
+        "imprensa.localiza.com",
+      ];
+
       const system =
-        "Você é um assistente de pesquisa. Use a busca pra encontrar conteúdo real já publicado pela Localiza (Instagram, LinkedIn, TikTok, YouTube ou blog/site oficial) sobre o tópico pedido. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
-      const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).\nTópico do post: ${baseTexto}\nRede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}\n\nPesquise conteúdo já publicado pela Localiza em ${redesTexto} (ou no blog/site oficial) relacionado a esse tópico, que não seja da rede em que este post vai ser publicado.`;
+        "Você é um assistente de pesquisa. Use a busca pra encontrar conteúdo real e específico (um post, vídeo ou artigo, não a home genérica) já publicado nos perfis e domínios oficiais da Localiza listados abaixo, sobre o tópico pedido. Nunca use resultado de site de terceiros, blog de turismo, notícia externa ou qualquer domínio fora da lista. Responda em texto corrido descrevendo o que encontrou, sem inventar nada que não veio da busca.";
+      const prompt = `Marca: Localiza (grupo Localiza, BU ${bu.label}).
+Tópico do post: ${baseTexto}
+Rede em que este post específico vai ser publicado: ${draft.platforms.join(", ") || "não definida"}
+
+Domínios/perfis oficiais permitidos (use site: para restringir a busca a estes, e somente estes):
+${perfisOficiais.map((d) => `site:${d}`).join(" OR ")}
+
+Pesquise conteúdo específico já publicado pela Localiza em ${redesTexto} dentro desses domínios oficiais, relacionado a esse tópico, que não seja da rede em que este post vai ser publicado. Prefira posts/vídeos/artigos específicos, não páginas genéricas de entrada do site.`;
       const { sources, searched, searchError } = await callAI({ system, prompt, useSearch: true });
 
       if (!searched) {
@@ -663,24 +686,34 @@ export default function App() {
         return;
       }
 
+      const isOficial = (url) => {
+        try {
+          const host = new URL(url).hostname.replace(/^www\./, "");
+          return perfisOficiais.some((d) => host === d.split("/")[0] || host.endsWith(`.${d.split("/")[0]}`));
+        } catch {
+          return false;
+        }
+      };
+
       const guessRede = (s) => {
         const t = `${s.title || ""} ${s.url || ""}`.toLowerCase();
         if (t.includes("instagram")) return "Instagram";
         if (t.includes("linkedin")) return "LinkedIn";
         if (t.includes("tiktok")) return "TikTok";
         if (t.includes("youtube")) return "YouTube";
-        return "Blog/Site";
+        if (t.includes("facebook")) return "Facebook";
+        return "Blog/Site oficial";
       };
       const platformsInPost = draft.platforms.map((p) => PLATFORMS.find((pl) => pl.id === p)?.label?.toLowerCase());
 
       const items = (sources || [])
-        .filter((s) => s.url && s.title)
-        .map((s) => ({ rede: guessRede(s), titulo: s.title, url: s.url, dica: "Encontrado na busca sobre esse tema. Confira se faz sentido citar ou linkar." }))
+        .filter((s) => s.url && s.title && isOficial(s.url))
+        .map((s) => ({ rede: guessRede(s), titulo: s.title, url: s.url, dica: "Encontrado na busca dentro dos perfis/domínios oficiais da Localiza. Confira se faz sentido citar ou linkar." }))
         .filter((it) => !platformsInPost.includes(it.rede.toLowerCase()))
         .slice(0, 5);
 
       if (items.length === 0) {
-        setError("A busca rodou de verdade, mas não achou nenhuma fonte real pra esse tópico. Tenta descrever o tópico de outro jeito.");
+        setError("A busca rodou de verdade, mas não achou conteúdo específico dentro dos perfis oficiais da Localiza pra esse tópico. Tenta descrever o tópico de outro jeito.");
       }
 
       setDraft((d) => ({
