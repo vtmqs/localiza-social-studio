@@ -10,8 +10,8 @@
 // CONFIGURAÇÃO NECESSÁRIA NA VERCEL:
 // 1. No painel do projeto, vá em Settings > Environment Variables
 // 2. Adicione GEMINI_API_KEY com sua chave gratuita do Google AI Studio
-// 3. (Opcional) Adicione GEMINI_MODEL, ex: "gemini-2.5-flash" — se não
-//    definir, usa gemini-2.5-flash (o modelo do plano gratuito).
+// 3. (Opcional) Adicione GEMINI_MODEL, ex: "gemini-3.1-flash-lite" — se não
+//    definir, usa gemini-3.1-flash-lite (o modelo atual do plano gratuito).
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
   async function callGemini(withSearch) {
     const body = {
