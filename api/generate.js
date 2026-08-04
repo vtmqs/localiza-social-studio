@@ -60,6 +60,7 @@ export default async function handler(req, res) {
   try {
     let geminiRes = await callGemini(!!useSearch);
     let searched = !!useSearch;
+    let searchError = null;
 
     // Se a busca falhar (ex: grounding não disponível nessa chave/conta),
     // tenta de novo sem busca em vez de simplesmente devolver erro.
@@ -68,6 +69,7 @@ export default async function handler(req, res) {
     if (!geminiRes.ok && useSearch) {
       const firstErrText = await geminiRes.text();
       console.error("Erro Gemini (com busca):", firstErrText);
+      searchError = firstErrText;
       const retryRes = await callGemini(false);
       if (retryRes.ok) {
         geminiRes = retryRes;
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
       .map((c) => ({ url: c?.web?.uri, title: c?.web?.title }))
       .filter((s) => s.url);
 
-    res.status(200).json({ text, searched, sources });
+    res.status(200).json({ text, searched, sources, searchError });
   } catch (e) {
     res.status(500).json({ error: `Falha ao chamar o Gemini: ${e.message}` });
   }
