@@ -112,10 +112,10 @@ export default async function handler(req, res) {
       .map((c) => ({ url: c?.web?.uri, title: c?.web?.title }))
       .filter((s) => s.url);
 
-    async function resolveFinalUrl(url) {
+    async function resolveFinalUrlETitulo(url) {
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
+        const timeout = setTimeout(() => controller.abort(), 6000);
         // GET em vez de HEAD: alguns sites/CDNs bloqueiam ou tratam HEAD de
         // forma diferente, o que fazia a resolução falhar silenciosamente.
         const r = await fetch(url, {
@@ -125,7 +125,18 @@ export default async function handler(req, res) {
           headers: { "User-Agent": "Mozilla/5.0 (compatible; LocalizaSocialStudioBot/1.0)" },
         });
         clearTimeout(timeout);
-        return r.url || null;
+        const html = await r.text();
+        const match = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+        let tituloReal = null;
+        if (match && match[1]) {
+          tituloReal = match[1]
+            .replace(/&amp;/g, "&")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&nbsp;/g, " ")
+            .trim();
+        }
+        return { url: r.url || url, tituloReal };
       } catch (e) {
         console.error("Falha ao resolver redirecionamento:", url, e.message);
         return null;
@@ -134,11 +145,16 @@ export default async function handler(req, res) {
 
     const resolved = await Promise.all(
       rawSources.map(async (s) => {
-        const finalUrl = await resolveFinalUrl(s.url);
-        // Se não conseguir resolver o link real, mantém o link original do
-        // Google como fallback (ainda clicável e ainda veio de busca real),
-        // mas sinaliza "resolved: false" pro front decidir como tratar.
-        return { url: finalUrl || s.url, title: s.title, resolved: !!finalUrl };
+        const info = await resolveFinalUrlETitulo(s.url);
+        // Se não conseguir resolver, mantém o link original do Google como
+        // fallback (ainda clicável e ainda veio de busca real), mas sinaliza
+        // "resolved: false" pro front decidir como tratar. Prioriza o título
+        // real da página (mais específico) sobre o título genérico do grounding.
+        return {
+          url: info?.url || s.url,
+          title: info?.tituloReal || s.title,
+          resolved: !!info,
+        };
       })
     );
     const sources = resolved.filter(Boolean);
