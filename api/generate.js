@@ -64,6 +64,7 @@ export default async function handler(req, res) {
     // tenta de novo sem busca em vez de simplesmente devolver erro.
     if (!geminiRes.ok && useSearch) {
       const firstErrText = await geminiRes.text();
+      console.error("Erro Gemini (com busca):", firstErrText);
       const retryRes = await callGemini(false);
       if (retryRes.ok) {
         geminiRes = retryRes;
@@ -77,6 +78,7 @@ export default async function handler(req, res) {
 
     if (!geminiRes.ok) {
       const errText = await geminiRes.text();
+      console.error("Erro Gemini:", errText);
       res.status(geminiRes.status).json({ error: `Erro do Gemini: ${errText}` });
       return;
     }

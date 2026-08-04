@@ -590,7 +590,7 @@ export default function App() {
       const insightsText = Array.isArray(insights) ? insights.map((i) => `• ${i}`).join("\n") : "";
       updateFormField("insights", insightsText);
     } catch (e) {
-      setError("Não consegui rodar o benchmark agora. Tenta de novo em instantes.");
+      setError(`Não consegui rodar o benchmark agora: ${e.message}`);
     } finally {
       setBenchLoading(false);
     }
