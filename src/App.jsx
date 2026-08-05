@@ -2354,6 +2354,29 @@ Avalie "seoScore" e "toneScore".`;
                   {genLoading ? <Loader2 size={16} className="animate-spin" /> : draft.mode === "novo" ? <Sparkles size={16} /> : <Wand2 size={16} />}
                   {draft.mode === "novo" ? "Criar legenda" : "Otimizar legenda"}
                 </button>
+
+                {draft.platforms.includes("youtube") && (
+                  <button
+                    onClick={async () => {
+                      const { text } = await callAI({
+                        system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
+                        prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
+                        useSearch: false,
+                      });
+                      const titulo = text.trim().slice(0, 100);
+                      setResults((prev) => prev
+                        ? { ...prev, youtube: { ...(prev.youtube || {}), titulo_youtube: titulo } }
+                        : { youtube: { legenda: "", hashtags: [], titulo_youtube: titulo, seoScore: 0, toneScore: 0 } }
+                      );
+                    }}
+                    disabled={genLoading}
+                    style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
+                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
+                  >
+                    <PlayCircle size={16} />
+                    Criar título do YouTube
+                  </button>
+                )}
               </div>
 
               {results && (
