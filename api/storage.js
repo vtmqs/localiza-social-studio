@@ -2,7 +2,8 @@
 // Variáveis necessárias (criadas automaticamente pela integração Vercel/Upstash):
 //   KV_REST_API_URL, KV_REST_API_TOKEN, KV_REST_API_READ_ONLY_TOKEN
 
-const KV_URL = process.env.KV_REST_API_URL;
+// Variáveis criadas pela integração Vercel/Upstash (nomes podem variar por idioma da UI)
+const KV_URL = process.env.KV_REST_API_URL || process.env["URL da API REST KV"] || process.env.URL_KV;
 const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const KV_READ_TOKEN = process.env.KV_REST_API_READ_ONLY_TOKEN;
 
@@ -15,13 +16,14 @@ async function kvGet(key) {
 }
 
 async function kvSet(key, value) {
+  // API REST do Upstash: POST /set/KEY com body sendo o valor como string
   const r = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${KV_TOKEN}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ value }),
+    body: JSON.stringify([value]),
   });
   return r.ok;
 }
