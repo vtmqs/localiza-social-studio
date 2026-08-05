@@ -31,6 +31,7 @@ import {
   RefreshCw,
   LogOut,
   List,
+  Upload,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -1522,12 +1523,64 @@ Avalie "seoScore" e "toneScore".`;
               <div>
                 <button
                   onClick={startNewPreset}
-                  className="ls-btn-ghost w-full flex items-center justify-center gap-1.5 text-xs font-medium border rounded-lg py-2 mb-3 bg-white"
+                  className="ls-btn-ghost w-full flex items-center justify-center gap-1.5 text-xs font-medium border rounded-lg py-2 mb-2 bg-white"
                   style={{ borderColor: BORDER, color: MUTED }}
                 >
                   <Plus size={14} />
                   Novo estilo
                 </button>
+                <label
+                  className="ls-btn-ghost w-full flex items-center justify-center gap-1.5 text-xs font-medium border rounded-lg py-2 mb-3 bg-white cursor-pointer"
+                  style={{ borderColor: BORDER, color: MUTED }}
+                  title="Importe um template .docx preenchido"
+                >
+                  <Upload size={14} />
+                  Importar template
+                  <input
+                    type="file"
+                    accept=".docx"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      e.target.value = "";
+                      setError("");
+                      try {
+                        // Lê o docx como texto via mammoth (se disponível) ou FileReader
+                        const mammoth = await import("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js").catch(() => null);
+                        let text = "";
+                        if (mammoth) {
+                          const arrayBuffer = await file.arrayBuffer();
+                          const result = await mammoth.default.extractRawText({ arrayBuffer });
+                          text = result.value;
+                        } else {
+                          text = await file.text();
+                        }
+                        // Manda pro Gemini interpretar e preencher os campos
+                        const { text: jsonText } = await callAI({
+                          system: `Você é um parser de documentos. Dado o texto abaixo extraído de um template de estilo de marca, extraia os campos e retorne SOMENTE um objeto JSON válido com estas chaves exatas (string, sem markdown): title, regras, eixo, fioCondutor, tom, vocabulario (array de strings, uma por item), evitar, exemplos. Se um campo estiver vazio ou não encontrado, use string vazia ou array vazio.`,
+                          prompt: text,
+                          useSearch: false,
+                        });
+                        const parsed = extractJSON(jsonText);
+                        if (!parsed || !parsed.title) {
+                          setError("Não consegui ler o template. Verifique se está no formato correto.");
+                          return;
+                        }
+                        const newPreset = {
+                          ...BLANK_PRESET,
+                          ...parsed,
+                          vocabulario: Array.isArray(parsed.vocabulario) ? parsed.vocabulario : (parsed.vocabulario || "").split("\n").map(s => s.trim()).filter(Boolean),
+                        };
+                        setEditingId("new");
+                        setFormPreset(newPreset);
+                        setTitleError(false);
+                      } catch (err) {
+                        setError(`Erro ao importar o template: ${err.message}`);
+                      }
+                    }}
+                  />
+                </label>
                 <div className="space-y-1.5">
                   {buPresets.length === 0 && (
                     <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
