@@ -1,30 +1,28 @@
-// Storage usando Upstash Redis REST API
-// Formato correto: POST /pipeline com array de comandos Redis
-
 const KV_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || process.env.KV_REST_API_READ_ONLY_TOKEN;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
-async function redisCmd(...args) {
-  const r = await fetch(`${KV_URL}/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${KV_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify([args]),
-  });
-  if (!r.ok) throw new Error(`Upstash ${r.status}: ${await r.text()}`);
-  const data = await r.json();
-  // pipeline retorna array de resultados
-  return data[0]?.result ?? null;
-}
-
+// Upstash REST API: GET /get/KEY, POST /set/KEY/VALUE
 async function kvGet(key) {
-  return redisCmd("GET", key);
+  const r = await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`, {
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  const data = await r.json();
+  return data.result ?? null;
 }
 
 async function kvSet(key, value) {
-  await redisCmd("SET", key, value);
+  // Upstash REST: POST /set/KEY com o valor como terceiro segmento da URL
+  // ou via body. O formato mais confiável é passar o valor na URL.
+  const encodedValue = encodeURIComponent(value);
+  const r = await fetch(`${KV_URL}/set/${encodeURIComponent(key)}/${encodedValue}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`Upstash ${r.status}: ${txt}`);
+  }
+  return true;
 }
 
 export default async function handler(req, res) {
@@ -40,12 +38,11 @@ export default async function handler(req, res) {
 
   const { action, userHash, bu } = req.body || {};
 
-  // DIAGNÓSTICO
   if (action === "ping") {
     try {
       await kvSet("ping:test", "pong");
       const val = await kvGet("ping:test");
-      res.status(200).json({ ok: true, got: val, url: KV_URL.slice(0, 35) + "..." });
+      res.status(200).json({ ok: true, got: val });
     } catch (e) {
       res.status(200).json({ ok: false, error: e.message });
     }
