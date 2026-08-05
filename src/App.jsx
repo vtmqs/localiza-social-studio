@@ -914,7 +914,7 @@ Estilo de referência usado: ${ctx.p.title || "nenhum estilo salvo selecionado"}
 Regras da marca: ${ctx.p.regras || "nenhuma regra específica definida"}
 Eixo editorial: ${ctx.p.eixo || "não definido"}
 Fio condutor que toda legenda deve manter: ${ctx.p.fioCondutor || "não definido"}
-Vocabulário/expressões preferidas (numeradas por prioridade): ${ctx.vocabTxt}
+Vocabulário e registro de marca (referência de espírito e tom, não lista de palavras obrigatórias — pode ser explícito ou implícito conforme o contexto pedir): ${ctx.vocabTxt}
 O que evitar: ${ctx.p.evitar || "nenhuma restrição adicional"}
 Insights de benchmark de concorrentes/inspirações (usar como inspiração, nunca citar ou comparar diretamente): ${ctx.p.insights || "nenhum insight coletado"}
 Exemplos reais de legendas já aprovadas pelo time para este BU (aprenda o padrão de tom/estrutura, não copie literalmente):
@@ -986,7 +986,7 @@ Estilo de referência usado: ${ctx.p.title || "nenhum estilo salvo selecionado"}
 Regras da marca: ${ctx.p.regras || "nenhuma regra específica definida"}
 Eixo editorial: ${ctx.p.eixo || "não definido"}
 Fio condutor: ${ctx.p.fioCondutor || "não definido"}
-Vocabulário/expressões preferidas (numeradas por prioridade): ${ctx.vocabTxt}
+Vocabulário e registro de marca (referência de espírito e tom, não lista de palavras obrigatórias — pode ser explícito ou implícito conforme o contexto pedir): ${ctx.vocabTxt}
 O que evitar: ${ctx.p.evitar || "nenhuma restrição adicional"}
 Exemplos reais de legendas já aprovadas pelo time (aprenda o padrão, não copie literalmente):
 ${ctx.exemplosSalvos || "nenhum salvo ainda"}
