@@ -428,6 +428,8 @@ export default function App() {
   const [formPreset, setFormPreset] = useState(BLANK_PRESET);
   const [titleError, setTitleError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [switchNetModal, setSwitchNetModal] = useState(null); // { toId }
+  const [pendingLegenda, setPendingLegenda] = useState(null); // legenda gerada antes de trocar
   const [showSaved, setShowSaved] = useState(false);
 
   const [library, setLibrary] = useState({});
@@ -620,11 +622,16 @@ export default function App() {
     }
   };
 
-  const togglePlatform = (id) => {
-    setDraft((d) => ({
-      ...d,
-      platforms: d.platforms.includes(id) ? d.platforms.filter((p) => p !== id) : [...d.platforms, id],
-    }));
+  const selectPlatform = (id) => {
+    // Se já está selecionada, não faz nada
+    if (draft.platforms[0] === id) return;
+    // Se há legenda gerada, pergunta o que fazer antes de trocar
+    if (results) {
+      setPendingLegenda({ toId: id });
+      setSwitchNetModal({ toId: id });
+    } else {
+      setDraft((d) => ({ ...d, platforms: [id] }));
+    }
   };
 
   const toggleTone = (tag) => {
@@ -965,8 +972,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: escreva como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, cobertura temática das keywords e uso estratégico de hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "título até 70 chars, só preencher se plataforma for youtube", "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves. Para a plataforma "youtube", inclua também "titulo_youtube" com um título otimizado de até 70 caracteres, com a keyword principal na frente, que seja clicável e gere curiosidade sem ser clickbait.`
+{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "OBRIGATÓRIO quando plataforma for youtube: título otimizado até 70 chars", "seoScore": 0, "toneScore": 0}}
+Use exatamente os ids de plataforma fornecidos como chaves. OBRIGATÓRIO: para a plataforma "youtube", o campo "titulo_youtube" DEVE ser preenchido com um título de até 70 caracteres, keyword principal no início, clicável sem ser clickbait. Não deixe esse campo vazio nem omita ele quando a plataforma for youtube.`
 
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
@@ -1035,8 +1042,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: otimize como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, cobertura temática das keywords) e "toneScore" (0-100). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "título até 70 chars, só preencher se plataforma for youtube", "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves. Para a plataforma "youtube", inclua também "titulo_youtube" com um título otimizado de até 70 caracteres, com a keyword principal na frente, que seja clicável e gere curiosidade sem ser clickbait.`
+{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "OBRIGATÓRIO quando plataforma for youtube: título otimizado até 70 chars", "seoScore": 0, "toneScore": 0}}
+Use exatamente os ids de plataforma fornecidos como chaves. OBRIGATÓRIO: para a plataforma "youtube", o campo "titulo_youtube" DEVE ser preenchido com um título de até 70 caracteres, keyword principal no início, clicável sem ser clickbait. Não deixe esse campo vazio nem omita ele quando a plataforma for youtube.`
 
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
@@ -1974,7 +1981,7 @@ Avalie "seoScore" e "toneScore".`;
                       return (
                         <button
                           key={p.id}
-                          onClick={() => togglePlatform(p.id)}
+                          onClick={() => selectPlatform(p.id)}
                           style={active ? { background: GREEN, borderColor: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", borderColor: BORDER, color: MUTED }}
                           className="ls-platform-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium"
                         >
@@ -2350,6 +2357,101 @@ Avalie "seoScore" e "toneScore".`;
         </div>
       </main>
     </div>
+
+    {/* Modal de troca de rede */}
+    {switchNetModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Trocar de rede</p>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>
+            Você tem uma legenda gerada. O que quer fazer antes de trocar?
+          </p>
+          <div className="space-y-2 mb-4">
+            <button
+              onClick={() => {
+                const toId = switchNetModal.toId;
+                // Salva a legenda atual primeiro
+                if (results) {
+                  const platform = draft.platforms[0];
+                  const r = results[platform];
+                  if (r) {
+                    const entry = { id: `${Date.now()}`, platform, legenda: r.legenda, hashtags: r.hashtags || [], topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore, toneScore: r.toneScore, destaque: false, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                    const current = library[activeBU] || [];
+                    const updated = [entry, ...current];
+                    setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
+                    storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                  }
+                }
+                setResults(null);
+                setSwitchNetModal(null);
+                // Pergunta se mantém configurações
+                setSwitchNetModal({ toId, phase: "keep" });
+              }}
+              className="w-full text-sm font-medium rounded-lg py-2.5 text-white"
+              style={{ background: GREEN }}
+            >
+              Salvar legenda e trocar
+            </button>
+            <button
+              onClick={() => {
+                const toId = switchNetModal.toId;
+                setResults(null);
+                setSwitchNetModal({ toId, phase: "keep" });
+              }}
+              className="w-full text-sm font-medium rounded-lg py-2.5 border"
+              style={{ borderColor: BORDER, color: MUTED }}
+            >
+              Descartar e trocar
+            </button>
+            <button
+              onClick={() => setSwitchNetModal(null)}
+              className="w-full text-sm rounded-lg py-2"
+              style={{ color: MUTED }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal manter configurações */}
+    {switchNetModal?.phase === "keep" && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Manter configurações?</p>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>
+            Quer manter o tópico, palavras-chave, estilo e tom pra gerar a legenda pra nova rede?
+          </p>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                // Mantém tudo, só troca a rede
+                setDraft((d) => ({ ...d, platforms: [switchNetModal.toId] }));
+                setSwitchNetModal(null);
+              }}
+              className="w-full text-sm font-medium rounded-lg py-2.5 text-white"
+              style={{ background: GREEN }}
+            >
+              Sim, manter configurações
+            </button>
+            <button
+              onClick={() => {
+                // Limpa tudo e troca a rede
+                const newDraft = emptyDraft();
+                newDraft.platforms = [switchNetModal.toId];
+                setDraft(newDraft);
+                setSwitchNetModal(null);
+              }}
+              className="w-full text-sm font-medium rounded-lg py-2.5 border"
+              style={{ borderColor: BORDER, color: MUTED }}
+            >
+              Não, começar do zero
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Modal de erro */}
     {errorModal && (
