@@ -179,12 +179,17 @@ function platformNotesFor(length) {
 
 function sanitizeDashes(text) {
   if (typeof text !== "string") return text;
-  return text
-    .replace(/\\n/g, "\n")          // converte \n literal em quebra de linha real
+  // Converte qualquer forma de \n literal em quebra real
+  let t = text;
+  // Se vier como \n (dois chars: backslash + n)
+  if (t.includes("\\n")) t = t.replace(/\\n/g, "\n");
+  // Se vier como a sequência literal barra-n que sobreviveu ao JSON parse
+  t = t
     .replace(/\s*[—–]\s*/g, ", ")
     .replace(/,\s*,/g, ",")
-    .replace(/[^\S\n]{2,}/g, " ")   // colapsa espaços mas preserva \n
+    .replace(/[^\S\n]{2,}/g, " ")
     .trim();
+  return t;
 }
 
 function sanitizeResults(parsed) {
@@ -978,8 +983,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: escreva como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, cobertura temática das keywords e uso estratégico de hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "OBRIGATÓRIO quando plataforma for youtube: título otimizado até 70 chars", "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves. OBRIGATÓRIO: para a plataforma "youtube", o campo "titulo_youtube" DEVE ser preenchido com um título de até 70 caracteres, keyword principal no início, clicável sem ser clickbait. Não deixe esse campo vazio nem omita ele quando a plataforma for youtube.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "titulo_youtube": "só quando youtube", "seoScore": 0, "toneScore": 0}}
+ATENÇÃO: no campo "legenda", use \n (barra-n) para quebras de linha. Se bullets estiverem ativados, a legenda DEVE ter a estrutura com • mostrada no exemplo acima. Use exatamente os ids de plataforma como chaves. Para youtube, preencha "titulo_youtube" com título até 70 chars.`
 
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
@@ -1048,8 +1053,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: otimize como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, cobertura temática das keywords) e "toneScore" (0-100). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "...", "hashtags": ["...", "..."], "titulo_youtube": "OBRIGATÓRIO quando plataforma for youtube: título otimizado até 70 chars", "seoScore": 0, "toneScore": 0}}
-Use exatamente os ids de plataforma fornecidos como chaves. OBRIGATÓRIO: para a plataforma "youtube", o campo "titulo_youtube" DEVE ser preenchido com um título de até 70 caracteres, keyword principal no início, clicável sem ser clickbait. Não deixe esse campo vazio nem omita ele quando a plataforma for youtube.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "titulo_youtube": "só quando youtube", "seoScore": 0, "toneScore": 0}}
+ATENÇÃO: no campo "legenda", use \n (barra-n) para quebras de linha. Se bullets estiverem ativados, a legenda DEVE ter a estrutura com • mostrada no exemplo acima. Use exatamente os ids de plataforma como chaves. Para youtube, preencha "titulo_youtube" com título até 70 chars.`
 
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
@@ -2358,20 +2363,21 @@ Avalie "seoScore" e "toneScore".`;
                 {draft.platforms.includes("youtube") && (
                   <button
                     onClick={async () => {
-                      const { text } = await callAI({
-                        system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
-                        prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
-                        useSearch: false,
-                      });
-                      const titulo = text.trim().slice(0, 100);
-                      setResults((prev) => prev
-                        ? { ...prev, youtube: { ...(prev.youtube || {}), titulo_youtube: titulo } }
-                        : { youtube: { legenda: "", hashtags: [], titulo_youtube: titulo, seoScore: 0, toneScore: 0 } }
-                      );
+                      try {
+                        const { text } = await callAI({
+                          system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
+                          prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
+                          useSearch: false,
+                        });
+                        const titulo = text.trim().slice(0, 100);
+                        setResults((prev) => ({
+                          ...(prev || {}),
+                          youtube: { legenda: "", hashtags: [], seoScore: 0, toneScore: 0, ...(prev?.youtube || {}), titulo_youtube: titulo },
+                        }));
+                      } catch(e) { setError("Não consegui gerar o título agora."); }
                     }}
-                    disabled={genLoading}
                     style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
-                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
+                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity"
                   >
                     <PlayCircle size={16} />
                     Criar título do YouTube
@@ -2382,7 +2388,7 @@ Avalie "seoScore" e "toneScore".`;
               {results && (
                 <div className="space-y-4">
                   {draft.platforms
-                    .filter((p) => results[p])
+                    .filter((p) => results[p] && (results[p].legenda || results[p].titulo_youtube))
                     .map((p) => {
                       const Icon = PLATFORMS.find((pl) => pl.id === p).icon;
                       const r = results[p];
