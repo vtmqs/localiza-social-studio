@@ -1631,20 +1631,25 @@ Avalie "seoScore" e "toneScore".`;
                         ))}
                       </ol>
                     )}
-                    <div className="flex gap-2">
-                      <input
+                    <div className="flex gap-2 items-start">
+                      <textarea
                         value={vocabInput}
                         onChange={(e) => setVocabInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addVocab();
-                          }
-                        }}
-                        placeholder="Digite uma expressão e aperte Enter"
-                        className={`${inputClass} flex-1`}
+                        placeholder={"Uma expressão por linha\nEx: É Localiza, pode confiar\nA vida não espera"}
+                        className={`${inputClass} flex-1 min-h-[72px] resize-none`}
+                        rows={3}
                       />
-                      <button onClick={addVocab} className="ls-btn-ghost px-3 rounded-lg border bg-white" style={{ borderColor: BORDER, color: MUTED }} aria-label="Adicionar">
+                      <button
+                        onClick={() => {
+                          const terms = vocabInput.split("\n").map((t) => t.trim()).filter(Boolean);
+                          if (!terms.length) return;
+                          updateFormField("vocabulario", [...(formPreset.vocabulario || []), ...terms]);
+                          setVocabInput("");
+                        }}
+                        className="ls-btn-ghost px-3 rounded-lg border bg-white shrink-0"
+                        style={{ borderColor: BORDER, color: MUTED }}
+                        aria-label="Adicionar"
+                      >
                         <Plus size={16} />
                       </button>
                     </div>
