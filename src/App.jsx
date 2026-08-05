@@ -1769,7 +1769,16 @@ Avalie "seoScore" e "toneScore".`;
               <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Estilos criados</h2>
               <p className="text-sm mb-5" style={{ color: MUTED }}>Clique em um estilo pra usá-lo na geração de legendas.</p>
               {buPresets.length === 0 ? (
-                <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo criado ainda pra {bu.label}. Crie o primeiro em "Estilo geral da marca".</p>
+                <>
+                <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo criado ainda pra {bu.label}.</p>
+                <button
+                  onClick={() => { setPage("style"); startNewPreset(); }}
+                  style={{ background: GREEN }}
+                  className="mt-4 text-white text-sm font-medium rounded-lg px-4 py-2 hover:opacity-90 transition-opacity"
+                >
+                  Criar primeiro estilo
+                </button>
+              </>
               ) : (
                 <div className="space-y-3">
                   {buPresets.map((p) => {
