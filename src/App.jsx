@@ -1107,6 +1107,8 @@ Avalie "seoScore" e "toneScore".`;
         seoScore: r.seoScore,
         toneScore: r.toneScore,
         destaque: !!destaque,
+        visibility: "private",
+        savedBy: currentUser?.name || "Anônimo",
         savedAt: new Date().toISOString(),
       };
       const current = library[activeBU] || [];
@@ -1122,18 +1124,18 @@ Avalie "seoScore" e "toneScore".`;
     }
   };
 
-  const toggleDestaque = async (id) => {
+  const toggleDestaque = (id) => {
     const current = library[activeBU] || [];
     const updated = current.map((c) => (c.id === id ? { ...c, destaque: !c.destaque } : c));
-    await storage.set(`captions:${activeBU}`, JSON.stringify(updated));
     setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
+    storage.set(`captions:${activeBU}`, JSON.stringify(updated));
   };
 
-  const deleteCaption = async (id) => {
+  const deleteCaption = (id) => {
     const current = library[activeBU] || [];
     const updated = current.filter((c) => c.id !== id);
-    await storage.set(`captions:${activeBU}`, JSON.stringify(updated));
     setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
+    storage.set(`captions:${activeBU}`, JSON.stringify(updated));
   };
 
   const copyToClipboard = async (key, text) => {
@@ -1865,6 +1867,21 @@ Avalie "seoScore" e "toneScore".`;
                             )}
                           </div>
                           <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                const current = library[activeBU] || [];
+                                const updated = current.map((x) => x.id === c.id ? { ...x, visibility: x.visibility === "public" ? "private" : "public" } : x);
+                                setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
+                                storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                              }}
+                              className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
+                              style={c.visibility === "public"
+                                ? { background: "#EAF9DC", color: GREEN_DARK, borderColor: LIME }
+                                : { background: "#F6F9F6", color: MUTED, borderColor: BORDER }}
+                              title={c.visibility === "public" ? "Pública — clique pra tornar privada" : "Privada — clique pra tornar pública"}
+                            >
+                              {c.visibility === "public" ? "Pública" : "Privada"}
+                            </button>
                             <button onClick={() => toggleDestaque(c.id)} aria-label="Destacar">
                               <Star size={16} fill={c.destaque ? LIME : "none"} style={{ color: c.destaque ? LIME : MUTED }} />
                             </button>
