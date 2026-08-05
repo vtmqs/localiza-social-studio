@@ -2,7 +2,7 @@
 // Formato correto: POST /pipeline com array de comandos Redis
 
 const KV_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || process.env.KV_REST_API_READ_ONLY_TOKEN;
 
 async function redisCmd(...args) {
   const r = await fetch(`${KV_URL}/pipeline`, {
