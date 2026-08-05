@@ -44,8 +44,8 @@ async function sheetsGet(token, range) {
   return data.values || [];
 }
 
-async function sheetsAppend(token, values) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}:append?valueInputOption=RAW`;
+async function sheetsAppend(token, values, sheetName = SHEET_NAME) {
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=RAW`;
   await fetch(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       const rows = await sheetsGet(token, "Users!A2:C");
       const existing = rows.find((r) => r[0] === hash);
       if (!existing) {
-        await sheetsAppend(token, [[hash, name, new Date().toISOString()]]);
+        await sheetsAppend(token, [[hash, name, new Date().toISOString()]], "Users");
       }
       res.status(200).json({ ok: true, user: { hash, name } });
       return;
