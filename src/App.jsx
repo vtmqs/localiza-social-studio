@@ -372,23 +372,17 @@ export default function App() {
     if (unlocked && !currentUser) setShowRegister(true);
   }, [unlocked, currentUser]);
 
-  async function handleRegister() {
+  function handleRegister() {
     if (!regName.trim()) { setRegError("Digite seu nome."); return; }
     if (regPwd.length < 6) { setRegError("A senha precisa ter pelo menos 6 caracteres."); return; }
-    setRegLoading(true);
-    setRegError("");
-    try {
-      const hash = hashPassword(regPwd);
-      const data = await storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash });
-      const user = { name: regName.trim(), hash };
-      setCurrentUser(user);
-      await storage.set("current-user", JSON.stringify(user));
-      setShowRegister(false);
-    } catch (e) {
-      setRegError("Erro ao cadastrar. Tenta de novo.");
-    } finally {
-      setRegLoading(false);
-    }
+    const hash = hashPassword(regPwd);
+    const user = { name: regName.trim(), hash };
+    // Salva localmente e libera a tela imediatamente (sem aguardar rede)
+    setCurrentUser(user);
+    storage.set("current-user", JSON.stringify(user));
+    setShowRegister(false);
+    // Sincroniza com o servidor em background (não bloqueia o usuário)
+    storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash }).catch(() => {});
   }
 
   const [screen, setScreen] = useState(() => {
@@ -530,63 +524,54 @@ export default function App() {
       return;
     }
     setTitleError(false);
-    setSaving(true);
-    try {
-      const list = presets[activeBU] || [];
-      let savedId;
-      let preset;
-      if (editingId === "new" || !formPreset.id) {
-        savedId = `${Date.now()}`;
-        preset = {
-          ...formPreset,
-          id: savedId,
-          createdBy: currentUser?.name || "Anônimo",
-          userHash: currentUser?.hash || null,
-          visibility: presetVisibility,
-          createdAt: new Date().toISOString(),
-        };
-      } else {
-        savedId = formPreset.id;
-        preset = { ...formPreset, updatedAt: new Date().toISOString() };
-      }
-
-      await storageAPI({
-        action: "savePreset",
-        bu: activeBU,
-        userHash: currentUser?.hash,
-        preset,
-        visibility: preset.visibility || presetVisibility,
-      });
-
-      // Atualiza lista local
-      const idx = list.findIndex((p) => p.id === savedId);
-      const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
-      setPresets((prev) => ({ ...prev, [activeBU]: updated }));
-      setEditingId(savedId);
-      setFormPreset(updated.find((p) => p.id === savedId));
-      if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
-      setShowSaved(true);
-      setTimeout(() => setShowSaved(false), 1800);
-    } catch (e) {
-      setError("Não consegui salvar o estilo agora. Tenta de novo.");
-    } finally {
-      setSaving(false);
+    const list = presets[activeBU] || [];
+    let savedId;
+    let preset;
+    if (editingId === "new" || !formPreset.id) {
+      savedId = `${Date.now()}`;
+      preset = {
+        ...formPreset,
+        id: savedId,
+        createdBy: currentUser?.name || "Anônimo",
+        userHash: currentUser?.hash || null,
+        visibility: presetVisibility,
+        createdAt: new Date().toISOString(),
+      };
+    } else {
+      savedId = formPreset.id;
+      preset = { ...formPreset, updatedAt: new Date().toISOString() };
     }
+    const idx = list.findIndex((p) => p.id === savedId);
+    const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
+    setPresets((prev) => ({ ...prev, [activeBU]: updated }));
+    setEditingId(savedId);
+    setFormPreset(updated.find((p) => p.id === savedId));
+    if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 1800);
+    storageAPI({
+      action: "savePreset",
+      bu: activeBU,
+      userHash: currentUser?.hash,
+      preset,
+      visibility: preset.visibility || presetVisibility,
+    }).catch(() => {});
   };
 
   const deletePreset = async (id) => {
     try {
       const list = presets[activeBU] || [];
       const preset = list.find((p) => p.id === id);
-      await storageAPI({
+      const updated = list.filter((p) => p.id !== id);
+      setPresets((prev) => ({ ...prev, [activeBU]: updated }));
+      // Sincroniza com o servidor em background
+      storageAPI({
         action: "deletePreset",
         bu: activeBU,
         userHash: currentUser?.hash,
         presetId: id,
         visibility: preset?.visibility || "public",
-      });
-      const updated = list.filter((p) => p.id !== id);
-      setPresets((prev) => ({ ...prev, [activeBU]: updated }));
+      }).catch(() => {});
       if (editingId === id) {
         if (updated.length > 0) selectPresetForEdit(updated[0]);
         else startNewPreset();
