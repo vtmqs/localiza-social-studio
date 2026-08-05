@@ -560,6 +560,7 @@ export default function App() {
       return;
     }
     setTitleError(false);
+    setSaving(true);
     const list = presets[activeBU] || [];
     let savedId;
     let preset;
@@ -579,20 +580,40 @@ export default function App() {
     }
     const idx = list.findIndex((p) => p.id === savedId);
     const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
+
+    // Atualiza estado local e cache imediatamente
     setPresets((prev) => ({ ...prev, [activeBU]: updated }));
     localStorage.setItem(`presets-cache:${activeBU}`, JSON.stringify(updated));
     setEditingId(savedId);
     setFormPreset(updated.find((p) => p.id === savedId));
     if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
-    setShowSaved(true);
-    setTimeout(() => setShowSaved(false), 1800);
-    storageAPI({
-      action: "savePreset",
-      bu: activeBU,
-      userHash: currentUser?.hash,
-      preset,
-      visibility: preset.visibility || presetVisibility,
-    }).catch(() => {});
+
+    // Envia pro Upstash e aguarda confirmação (com retry automático)
+    let salvouNoServidor = false;
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      try {
+        await storageAPI({
+          action: "savePreset",
+          bu: activeBU,
+          userHash: currentUser?.hash,
+          preset,
+          visibility: preset.visibility || presetVisibility,
+        });
+        salvouNoServidor = true;
+        break;
+      } catch (e) {
+        if (tentativa === 2) break;
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+
+    setSaving(false);
+    if (salvouNoServidor) {
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 1800);
+    } else {
+      setError("Estilo salvo localmente, mas não consegui sincronizar com o servidor. Tenta salvar de novo em instantes.");
+    }
   };
 
   const deletePreset = async (id) => {
