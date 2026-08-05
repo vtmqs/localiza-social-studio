@@ -450,26 +450,38 @@ export default function App() {
   const buLibrary = (activeBU && library[activeBU]) || [];
   const activeGenPreset = buPresets.find((p) => p.id === draft.presetId) || null;
 
-  const loadPresets = useCallback(async (buId) => {
-    try {
-      // Carrega estilos públicos do KV
-      const pubData = await storageAPI({ action: "listPublicPresets", bu: buId });
-      const pubList = (pubData.presets || []).map(normalizePreset);
-
-      // Carrega estilos privados do usuário atual (se logado)
-      let privList = [];
-      if (currentUser?.hash) {
-        const privData = await storageAPI({ action: "listPrivatePresets", bu: buId, userHash: currentUser.hash });
-        privList = (privData.presets || []).map(normalizePreset);
-      }
-
-      const all = [...pubList, ...privList];
-      setPresets((prev) => ({ ...prev, [buId]: all }));
-    } catch (e) {
-      setPresets((prev) => ({ ...prev, [buId]: [] }));
-    } finally {
+  const loadPresets = useCallback((buId) => {
+    // 1. Carrega do cache local imediatamente (zero latência)
+    const cacheKey = `presets-cache:${buId}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const list = JSON.parse(cached).map(normalizePreset);
+        setPresets((prev) => ({ ...prev, [buId]: list }));
+        setPresetsLoaded((prev) => ({ ...prev, [buId]: true }));
+      } catch {}
+    } else {
       setPresetsLoaded((prev) => ({ ...prev, [buId]: true }));
     }
+
+    // 2. Atualiza do servidor em background (sem bloquear)
+    const sync = async () => {
+      try {
+        const [pubData, privData] = await Promise.all([
+          storageAPI({ action: "listPublicPresets", bu: buId }),
+          currentUser?.hash
+            ? storageAPI({ action: "listPrivatePresets", bu: buId, userHash: currentUser.hash })
+            : Promise.resolve({ presets: [] }),
+        ]);
+        const all = [
+          ...(pubData.presets || []).map(normalizePreset),
+          ...(privData.presets || []).map(normalizePreset),
+        ];
+        setPresets((prev) => ({ ...prev, [buId]: all }));
+        localStorage.setItem(cacheKey, JSON.stringify(all));
+      } catch {}
+    };
+    sync();
   }, [currentUser]);
 
   const loadLibrary = useCallback(async (buId) => {
@@ -561,6 +573,7 @@ export default function App() {
     const idx = list.findIndex((p) => p.id === savedId);
     const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
     setPresets((prev) => ({ ...prev, [activeBU]: updated }));
+    localStorage.setItem(`presets-cache:${activeBU}`, JSON.stringify(updated));
     setEditingId(savedId);
     setFormPreset(updated.find((p) => p.id === savedId));
     if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
@@ -581,6 +594,7 @@ export default function App() {
       const preset = list.find((p) => p.id === id);
       const updated = list.filter((p) => p.id !== id);
       setPresets((prev) => ({ ...prev, [activeBU]: updated }));
+      localStorage.setItem(`presets-cache:${activeBU}`, JSON.stringify(updated));
       // Sincroniza com o servidor em background
       storageAPI({
         action: "deletePreset",
