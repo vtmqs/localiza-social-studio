@@ -180,9 +180,10 @@ function platformNotesFor(length) {
 function sanitizeDashes(text) {
   if (typeof text !== "string") return text;
   return text
+    .replace(/\\n/g, "\n")          // converte \n literal em quebra de linha real
     .replace(/\s*[—–]\s*/g, ", ")
     .replace(/,\s*,/g, ",")
-    .replace(/[^\S\n]{2,}/g, " ")  // colapsa espaços mas preserva \n
+    .replace(/[^\S\n]{2,}/g, " ")   // colapsa espaços mas preserva \n
     .trim();
 }
 
@@ -911,8 +912,8 @@ export default function App() {
       : 'Não gere hashtags. Retorne "hashtags": [].';
 
     const bulletsInstr = draft.useBullets
-      ? `ESTRUTURA OBRIGATÓRIA COM BULLETS: a legenda DEVE conter pelo menos uma lista com bullets (use • como marcador). Estruture assim: 1-2 frases de abertura em prosa, depois a lista com 3 a 5 bullets de uma linha cada (começando com •), depois 1 frase de encerramento com CTA. Use \\n para quebras de linha entre parágrafos e entre cada bullet. Exemplo de formato: "Frase de abertura.\\n\\n• Item um\\n• Item dois\\n• Item três\\n\\nFrase de encerramento."`
-      : "ESTRUTURA: escreva em prosa. Use \\n\\n para separar parágrafos distintos — não entregue tudo num bloco único sem respiro.";
+      ? `REGRA ABSOLUTA DE ESTRUTURA — BULLETS OBRIGATÓRIOS: O campo "legenda" do JSON DEVE usar o caractere literal \\n para quebras de linha e DEVE conter uma lista com bullets usando • como marcador. Formato exato obrigatório: "Abertura em 1-2 frases.\\n\\n• Primeiro item\\n• Segundo item\\n• Terceiro item\\n\\nEncerramento com CTA." — Se não tiver bullets e \\n no resultado, a resposta está ERRADA.`
+      : `ESTRUTURA: escreva em prosa com parágrafos separados por \\n\\n. Nunca entregue tudo num bloco único sem respiro.`;
 
     const urlInstr =
       urls.length > 0
