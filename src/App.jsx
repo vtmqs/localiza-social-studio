@@ -30,6 +30,7 @@ import {
   Wand2,
   RefreshCw,
   LogOut,
+  List,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -120,6 +121,7 @@ function emptyDraft(presetId) {
     relatedContent: [],
     useEmojis: true,
     useHashtags: true,
+    useBullets: false,
     length: "curta",
     autoKwTried: false,
   };
@@ -897,12 +899,16 @@ export default function App() {
       ? 'Gere hashtags relevantes: no máximo 5, mas a quantidade ideal varia por post e por plataforma (pode ser 1, 2, 3, 4 ou 5); não use sempre o mesmo número, decida pela relevância real.'
       : 'Não gere hashtags. Retorne "hashtags": [].';
 
+    const bulletsInstr = draft.useBullets
+      ? "ESTRUTURA: quando fizer sentido pra clareza (listar dicas, etapas ou itens distintos), use bullets ou listas curtas dentro da legenda. Misture prosa e bullets — não force bullets se o texto fluir melhor em parágrafo, e não force parágrafo se uma lista deixaria mais claro."
+      : "ESTRUTURA: escreva em prosa corrida, sem bullets nem listas. Um ou dois parágrafos com quebra de linha onde o ritmo pedir.";
+
     const urlInstr =
       urls.length > 0
         ? `Se houver URL pra incluir, coloque-a SEMPRE no final do texto, depois de toda a mensagem e antes das hashtags, assim: "Confira em: ${urls[0]}" ou "Saiba mais: ${urls[0]}". Nunca escreva "link na bio" nem mencione a URL no meio do texto. URLs a incluir: ${urls.join(", ")}.`
         : "Nenhuma URL selecionada para incluir.";
 
-    return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, urlInstr };
+    return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, bulletsInstr, urlInstr };
   }
 
   const generateCaptions = async () => {
@@ -922,7 +928,13 @@ export default function App() {
       const platformNotes = platformNotesFor(draft.length);
 
       const system = `Você é redator sênior de social media do grupo Localiza, especializado na BU ${bu.label} (${bu.sub}).
-Escreva como uma pessoa real do time criativa e apurada escreveria: com personalidade, ponto de vista, ritmo próprio. Evite qualquer clichê de texto gerado por IA (não abra com "Você sabia que", "Chegou a hora de", "Não perca tempo", "Está pronto para", "Descubra o segredo de" ou construções genéricas parecidas). Nunca escreva como press release nem como descrição de produto. Escreva como quem entende o assunto e tem algo real a dizer.
+Escreva como uma pessoa real do time criativa e apurada escreveria: com personalidade, ponto de vista, ritmo próprio. Nunca escreva como press release nem como descrição de produto. Escreva como quem entende o assunto e tem algo real a dizer.
+Erros concretos a evitar:
+- Não abra com "Você sabia que", "Chegou a hora de", "Não perca tempo", "Está pronto para", "Descubra o segredo de" ou variações genéricas.
+- Nunca introduza lugar, rota ou contexto geográfico sem âncora real — se mencionar "a serra", "as montanhas" ou qualquer destino, precisa haver um contexto claro no tópico ou nas informações fornecidas que justifique isso.
+- Evite expressões sentimentais vagas como "memórias quentinhas", "momentos especiais", "experiência inesquecível" — substitua por imagens concretas e específicas.
+- Nunca use "segurança automotiva garantida", "manutenção em dia" ou qualquer promessa técnica genérica — se for falar de segurança, contextualize com uma situação real.
+- Não force metáforas de temperatura ou clima como recursos emocionais ("clima gelado se transforma em convite quente", etc.).
 REGRA ABSOLUTA E INEGOCIÁVEL: JAMAIS use travessão (—) em nenhuma parte de nenhuma legenda, em nenhuma hipótese. Use vírgula, ponto ou reformule a frase em vez disso.
 Cada legenda deve ter uma abertura forte e inesperada (um fato curioso, uma pergunta que provoca, uma observação que o leitor não esperava, uma cena que ele reconhece), um desenvolvimento que entregue valor real (dica prática, contexto, perspectiva), e um encerramento com CTA claro e humano.
 Estilo de referência usado: ${ctx.p.title || "nenhum estilo salvo selecionado"}
@@ -2118,6 +2130,11 @@ Avalie "seoScore" e "toneScore".`;
                     <input type="checkbox" checked={draft.useHashtags} onChange={(e) => setDraft((d) => ({ ...d, useHashtags: e.target.checked }))} />
                     <Hash size={15} style={{ color: MUTED }} />
                     Incluir hashtags
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: TEXT }}>
+                    <input type="checkbox" checked={draft.useBullets} onChange={(e) => setDraft((d) => ({ ...d, useBullets: e.target.checked }))} />
+                    <List size={15} style={{ color: MUTED }} />
+                    Incluir bullets
                   </label>
                 </div>
                 {draft.useHashtags && (
