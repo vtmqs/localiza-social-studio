@@ -140,35 +140,12 @@ async function callAI({ system, prompt, useSearch }) {
 }
 
 const storage = {
-  async get(key) {
-    if (typeof window !== "undefined" && window.storage) {
-      try {
-        const r = await window.storage.get(key, false);
-        return r ? r.value : null;
-      } catch (e) {
-        return null;
-      }
-    }
-    try {
-      return window.localStorage.getItem(key);
-    } catch (e) {
-      return null;
-    }
+  get(key) {
+    try { return Promise.resolve(localStorage.getItem(key)); } catch { return Promise.resolve(null); }
   },
-  async set(key, value) {
-    if (typeof window !== "undefined" && window.storage) {
-      try {
-        await window.storage.set(key, value, false);
-        return;
-      } catch (e) {
-        /* cai pro localStorage abaixo */
-      }
-    }
-    try {
-      window.localStorage.setItem(key, value);
-    } catch (e) {
-      /* storage indisponível, ignora */
-    }
+  set(key, value) {
+    try { localStorage.setItem(key, value); } catch {}
+    return Promise.resolve();
   },
 };
 
@@ -347,9 +324,15 @@ const APP_PASSWORD = "conteudo2026localiza";
 
 // Hash simples da senha pessoal (não é criptografia bancária, mas evita
 // guardar a senha em texto puro no servidor)
-async function hashPassword(pwd) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(pwd));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+function hashPassword(pwd) {
+  // Hash simples e síncrono — suficiente pra identificar o usuário no KV
+  // sem expor a senha em texto puro, sem precisar de crypto assíncrono.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < pwd.length; i++) {
+    h ^= pwd.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0") + pwd.length.toString(16).padStart(4, "0");
 }
 
 async function storageAPI(body) {
@@ -395,7 +378,7 @@ export default function App() {
     setRegLoading(true);
     setRegError("");
     try {
-      const hash = await hashPassword(regPwd);
+      const hash = hashPassword(regPwd);
       const data = await storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash });
       const user = { name: regName.trim(), hash };
       setCurrentUser(user);
