@@ -1120,11 +1120,13 @@ Avalie "seoScore" e "toneScore".`;
         platform: platformId,
         legenda: r.legenda,
         hashtags: r.hashtags || [],
+        titulo_youtube: platformId === "youtube" ? (r.titulo_youtube || "") : undefined,
         topico: draft.mode === "otimizar" ? draft.existingCaption.slice(0, 80) : draft.topic,
         presetTitle: activeGenPreset?.title || "",
         seoScore: r.seoScore,
         toneScore: r.toneScore,
         destaque: !!destaque,
+        destaqueTitle: false,
         visibility: "private",
         savedBy: currentUser?.name || "Anônimo",
         savedAt: new Date().toISOString(),
@@ -1968,6 +1970,32 @@ Avalie "seoScore" e "toneScore".`;
             <div>
               <p className="text-sm mb-6" style={{ color: MUTED }}>
                 Legendas salvas de {bu.label}. As destacadas (⭐) têm mais peso como exemplo pra próxima geração.
+                {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).length > 0 && (
+                  <div className="mt-6">
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>Títulos YouTube salvos</p>
+                    <div className="space-y-2">
+                      {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).map(c => (
+                        <div key={c.id + "-title"} className="flex items-center justify-between gap-2 bg-white border rounded-lg px-3 py-2" style={{ borderColor: c.destaqueTitle ? LIME : BORDER }}>
+                          <p className="text-sm flex-1" style={{ color: TEXT }}>{c.titulo_youtube}</p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => {
+                                const updated = buLibrary.map(x => x.id === c.id ? { ...x, destaqueTitle: !x.destaqueTitle } : x);
+                                setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                              }}
+                            >
+                              <Star size={14} fill={c.destaqueTitle ? LIME : "none"} style={{ color: c.destaqueTitle ? LIME : MUTED }} />
+                            </button>
+                            <button onClick={() => deleteCaption(c.id)}>
+                              <Trash2 size={13} style={{ color: "#8A3A1F" }} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </p>
               {buLibrary.length === 0 ? (
                 <p className="text-sm" style={{ color: MUTED }}>
@@ -2361,27 +2389,30 @@ Avalie "seoScore" e "toneScore".`;
                 </button>
 
                 {draft.platforms.includes("youtube") && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        const { text } = await callAI({
-                          system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
-                          prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
-                          useSearch: false,
-                        });
-                        const titulo = text.trim().slice(0, 100);
-                        setResults((prev) => ({
-                          ...(prev || {}),
-                          youtube: { legenda: "", hashtags: [], seoScore: 0, toneScore: 0, ...(prev?.youtube || {}), titulo_youtube: titulo },
-                        }));
-                      } catch(e) { setError("Não consegui gerar o título agora."); }
-                    }}
-                    style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
-                    className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity"
-                  >
-                    <PlayCircle size={16} />
-                    Criar título do YouTube
-                  </button>
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: BORDER }}>
+                    <p className="text-xs font-semibold mb-2" style={{ color: MUTED }}>YouTube · título do vídeo</p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const { text } = await callAI({
+                            system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
+                            prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
+                            useSearch: false,
+                          });
+                          const titulo = text.trim().slice(0, 100);
+                          setResults((prev) => ({
+                            ...(prev || {}),
+                            youtube: { legenda: "", hashtags: [], seoScore: 0, toneScore: 0, ...(prev?.youtube || {}), titulo_youtube: titulo },
+                          }));
+                        } catch(e) { setError("Não consegui gerar o título agora."); }
+                      }}
+                      style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity"
+                    >
+                      <PlayCircle size={16} />
+                      Criar título do YouTube
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -2449,6 +2480,32 @@ Crie/otimize o título:`,
                               <p className="text-[11px] mt-1" style={{ color: (r.titulo_youtube?.length || 0) > 70 ? "#C0402A" : MUTED }}>
                                 {r.titulo_youtube?.length || 0}/70 caracteres ideais
                               </p>
+                              {r.titulo_youtube && (
+                                <button
+                                  onClick={() => {
+                                    const current = library[activeBU] || [];
+                                    // Verifica se já existe entrada salva com esse título
+                                    const existing = current.find(x => x.platform === "youtube" && x.titulo_youtube === r.titulo_youtube);
+                                    if (existing) {
+                                      // Destaca o existente
+                                      const updated = current.map(x => x.id === existing.id ? { ...x, destaqueTitle: !x.destaqueTitle } : x);
+                                      setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                                    } else {
+                                      // Salva novo entry só com título
+                                      const entry = { id: `${Date.now()}`, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                                      const updated = [entry, ...(library[activeBU] || [])];
+                                      setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                                    }
+                                  }}
+                                  className="mt-2 flex items-center gap-1.5 text-xs font-medium"
+                                  style={{ color: MUTED }}
+                                >
+                                  <Star size={13} />
+                                  Destacar título
+                                </button>
+                              )}
                             </div>
                           )}
                           <div className="flex flex-wrap gap-1.5 mt-3">
