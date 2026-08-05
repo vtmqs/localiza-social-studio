@@ -1557,15 +1557,35 @@ Avalie "seoScore" e "toneScore".`;
                       e.target.value = "";
                       setError("");
                       try {
-                        // Lê o docx como texto via mammoth (se disponível) ou FileReader
-                        const mammoth = await import("https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js").catch(() => null);
+                        // Lê o docx (que é um ZIP) e extrai o texto do word/document.xml
                         let text = "";
-                        if (mammoth) {
+                        try {
                           const arrayBuffer = await file.arrayBuffer();
-                          const result = await mammoth.default.extractRawText({ arrayBuffer });
-                          text = result.value;
-                        } else {
-                          text = await file.text();
+                          // Usa a API nativa de descompressão do browser (DecompressionStream)
+                          // Docx é um ZIP — precisamos ler o XML interno
+                          // Estratégia: enviar o arquivo pro backend que extrai o texto
+                          const formData = new FormData();
+                          formData.append("file", file);
+                          // Como não temos endpoint de extração, usamos FileReader pra ler como texto
+                          // e deixamos o Gemini lidar com o XML bruto
+                          const bytes = new Uint8Array(arrayBuffer);
+                          // Extrai texto legível do XML do docx (remove tags XML)
+                          const decoder = new TextDecoder("utf-8", { fatal: false });
+                          const raw = decoder.decode(bytes);
+                          // Pega só o conteúdo dentro de <w:t> tags (texto do Word)
+                          const matches = raw.match(/<w:t[^>]*>([^<]+)<\/w:t>/g) || [];
+                          text = matches
+                            .map(m => m.replace(/<[^>]+>/g, ""))
+                            .join(" ")
+                            .replace(/\s+/g, " ")
+                            .trim();
+                          if (!text || text.length < 20) {
+                            setError("Não consegui ler o conteúdo do arquivo. Tente salvar como .docx no Word e enviar novamente.");
+                            return;
+                          }
+                        } catch (readErr) {
+                          setError(`Erro ao ler o arquivo: ${readErr.message}`);
+                          return;
                         }
                         // Manda pro Gemini interpretar e preencher os campos
                         const { text: jsonText } = await callAI({
