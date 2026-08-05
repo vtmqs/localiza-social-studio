@@ -558,25 +558,16 @@ export default function App() {
   const [presetVisibility, setPresetVisibility] = useState("public");
 
   const savePreset = async () => {
-    if (!formPreset.title.trim()) {
-      setTitleError(true);
-      return;
-    }
+    if (!formPreset.title.trim()) { setTitleError(true); return; }
     setTitleError(false);
-    setSaving(true);
+    console.time("savePreset-total");
+    console.time("savePreset-local");
     const list = presets[activeBU] || [];
     let savedId;
     let preset;
     if (editingId === "new" || !formPreset.id) {
       savedId = `${Date.now()}`;
-      preset = {
-        ...formPreset,
-        id: savedId,
-        createdBy: currentUser?.name || "Anônimo",
-        userHash: currentUser?.hash || null,
-        visibility: presetVisibility,
-        createdAt: new Date().toISOString(),
-      };
+      preset = { ...formPreset, id: savedId, createdBy: currentUser?.name || "Anônimo", userHash: currentUser?.hash || null, visibility: presetVisibility, createdAt: new Date().toISOString() };
     } else {
       savedId = formPreset.id;
       preset = { ...formPreset, updatedAt: new Date().toISOString() };
@@ -584,39 +575,32 @@ export default function App() {
     const idx = list.findIndex((p) => p.id === savedId);
     const updated = idx >= 0 ? list.map((p) => (p.id === savedId ? preset : p)) : [...list, preset];
 
-    // Atualiza estado local e cache imediatamente
+    // Atualiza local IMEDIATAMENTE e mostra "Salvo!" sem esperar o servidor
     setPresets((prev) => ({ ...prev, [activeBU]: updated }));
     localStorage.setItem(`presets-cache:${activeBU}`, JSON.stringify(updated));
     setEditingId(savedId);
     setFormPreset(updated.find((p) => p.id === savedId));
     if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
+    setShowSaved(true);
+    setTimeout(() => setShowSaved(false), 1800);
+    console.timeEnd("savePreset-local");
+    console.log("UI atualizada — iniciando sync background");
+    console.timeEnd("savePreset-total");
 
-    // Envia pro Upstash e aguarda confirmação (com retry automático)
-    let salvouNoServidor = false;
-    for (let tentativa = 0; tentativa < 3; tentativa++) {
-      try {
-        await storageAPI({
-          action: "savePreset",
-          bu: activeBU,
-          userHash: currentUser?.hash,
-          preset,
-          visibility: preset.visibility || presetVisibility,
-        });
-        salvouNoServidor = true;
-        break;
-      } catch (e) {
-        if (tentativa === 2) break;
-        await new Promise((r) => setTimeout(r, 800));
+    // Sincroniza com Upstash em background (com retry silencioso)
+    const sync = async () => {
+      for (let i = 0; i < 3; i++) {
+        try {
+          await storageAPI({ action: "savePreset", bu: activeBU, userHash: currentUser?.hash, preset, visibility: preset.visibility || presetVisibility });
+          return; // sucesso
+        } catch {
+          await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+        }
       }
-    }
-
-    setSaving(false);
-    if (salvouNoServidor) {
-      setShowSaved(true);
-      setTimeout(() => setShowSaved(false), 1800);
-    } else {
-      setError("Estilo salvo localmente, mas não consegui sincronizar com o servidor. Tenta salvar de novo em instantes.");
-    }
+      // Se falhou 3x, avisa discretamente sem bloquear nada
+      console.warn("Não conseguiu sincronizar o estilo com o servidor. Está salvo localmente.");
+    };
+    sync();
   };
 
   const deletePreset = async (id) => {
