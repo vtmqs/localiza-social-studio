@@ -984,8 +984,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: escreva como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, cobertura temática das keywords e uso estratégico de hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "titulo_youtube": "só quando youtube", "seoScore": 0, "toneScore": 0}}
-ATENÇÃO: no campo "legenda", use \n (barra-n) para quebras de linha. Se bullets estiverem ativados, a legenda DEVE ter a estrutura com • mostrada no exemplo acima. Use exatamente os ids de plataforma como chaves. Para youtube, preencha "titulo_youtube" com título até 70 chars.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0}}
+ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves.`
 
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
@@ -1054,8 +1054,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: otimize como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, cobertura temática das keywords) e "toneScore" (0-100). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "titulo_youtube": "só quando youtube", "seoScore": 0, "toneScore": 0}}
-ATENÇÃO: no campo "legenda", use \n (barra-n) para quebras de linha. Se bullets estiverem ativados, a legenda DEVE ter a estrutura com • mostrada no exemplo acima. Use exatamente os ids de plataforma como chaves. Para youtube, preencha "titulo_youtube" com título até 70 chars.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0}}
+ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves.`
 
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
@@ -2477,14 +2477,36 @@ Crie/otimize o título:`,
                                   {r.titulo_youtube ? "Otimizar título" : "Gerar título"}
                                 </button>
                               </div>
-                              <input
-                                type="text"
-                                value={r.titulo_youtube || ""}
-                                maxLength={100}
-                                placeholder="Título do vídeo (até 70 caracteres ideais)"
-                                onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: e.target.value } }))}
-                                className={inputClass}
-                              />
+                              <div className="flex gap-2 items-center">
+                                <input
+                                  type="text"
+                                  value={r.titulo_youtube || ""}
+                                  maxLength={100}
+                                  placeholder="Título do vídeo (até 70 caracteres ideais)"
+                                  onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: e.target.value } }))}
+                                  className={`${inputClass} flex-1`}
+                                />
+                                <button
+                                  onClick={() => {
+                                    if (!r.titulo_youtube) return;
+                                    const current = library[activeBU] || [];
+                                    const existing = current.find(x => x.platform === "youtube" && x.titulo_youtube === r.titulo_youtube);
+                                    if (existing) {
+                                      const updated = current.map(x => x.id === existing.id ? { ...x, destaqueTitle: !x.destaqueTitle } : x);
+                                      setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                                    } else {
+                                      const entry = { id: `${Date.now()}`, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                                      const updated = [entry, ...(library[activeBU] || [])];
+                                      setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                                    }
+                                  }}
+                                  title="Destacar título"
+                                >
+                                  <Star size={16} fill={library[activeBU]?.find(x => x.titulo_youtube === r.titulo_youtube)?.destaqueTitle ? LIME : "none"} style={{ color: library[activeBU]?.find(x => x.titulo_youtube === r.titulo_youtube)?.destaqueTitle ? LIME : MUTED }} />
+                                </button>
+                              </div>
                               <p className="text-[11px] mt-1" style={{ color: (r.titulo_youtube?.length || 0) > 70 ? "#C0402A" : MUTED }}>
                                 {r.titulo_youtube?.length || 0}/70 caracteres ideais
                               </p>
