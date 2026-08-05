@@ -195,6 +195,7 @@ function sanitizeResults(parsed) {
       ...r,
       legenda: sanitizeDashes(r.legenda),
       hashtags: (r.hashtags || []).map((h) => sanitizeDashes(h)),
+      titulo_youtube: r.titulo_youtube ? sanitizeDashes(r.titulo_youtube) : "",
     };
   });
   return out;
@@ -2386,7 +2387,28 @@ Avalie "seoScore" e "toneScore".`;
                           />
                           {p === "youtube" && (
                             <div className="mt-3">
-                              <label className="text-xs font-semibold tracking-wide block mb-1" style={{ color: MUTED }}>Título sugerido (YouTube)</label>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-xs font-semibold tracking-wide" style={{ color: MUTED }}>Título (YouTube)</label>
+                                <button
+                                  onClick={async () => {
+                                    const currentTitle = r.titulo_youtube || "";
+                                    const { text } = await callAI({
+                                      system: "Você é especialista em SEO para YouTube. Otimize ou crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
+                                      prompt: `Tópico/legenda: ${r.legenda}
+Título atual: ${currentTitle || "nenhum"}
+Keywords: ${(draft.keywords || []).join(", ")}
+
+Crie/otimize o título:`,
+                                      useSearch: false,
+                                    });
+                                    setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: text.trim().slice(0, 100) } }));
+                                  }}
+                                  className="text-[11px] px-2 py-0.5 rounded border"
+                                  style={{ borderColor: BORDER, color: MUTED }}
+                                >
+                                  {r.titulo_youtube ? "Otimizar título" : "Gerar título"}
+                                </button>
+                              </div>
                               <input
                                 type="text"
                                 value={r.titulo_youtube || ""}
