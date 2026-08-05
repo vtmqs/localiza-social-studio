@@ -391,8 +391,19 @@ export default function App() {
     }
   }
 
-  const [screen, setScreen] = useState("home");
-  const [activeBU, setActiveBU] = useState(null);
+  const [screen, setScreen] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("bu") ? "workspace" : "home";
+    } catch { return "home"; }
+  });
+  const [activeBU, setActiveBU] = useState(() => {
+    // Lê ?bu=rac da URL pra permitir "Abrir em nova guia"
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("bu") || null;
+    } catch { return null; }
+  });
   const [page, setPage] = useState("compose");
 
   const [presets, setPresets] = useState({});
@@ -482,6 +493,7 @@ export default function App() {
     setResults(null);
     setError("");
     setEditingId(null);
+    try { window.history.replaceState(null, "", `?bu=${id}`); } catch {}
   };
 
   const switchBU = (id) => {
@@ -490,6 +502,7 @@ export default function App() {
     setResults(null);
     setError("");
     setEditingId(null);
+    try { window.history.replaceState(null, "", `?bu=${id}`); } catch {}
   };
 
   const startNewPreset = () => {
@@ -1255,11 +1268,12 @@ Avalie "seoScore" e "toneScore".`;
             <p className="text-white/40 text-[11px] font-semibold uppercase tracking-widest mb-2 px-1">Escolha a BU</p>
             <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               {BUS.map((b, i) => (
-                <button
+                <a
                   key={b.id}
-                  onClick={() => enterBU(b.id)}
+                  href={`?bu=${b.id}`}
+                  onClick={(e) => { e.preventDefault(); enterBU(b.id); }}
                   className="ls-bu-row group w-full flex items-center gap-5 px-5 sm:px-7 py-5 text-left"
-                  style={{ borderBottom: i < BUS.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none" }}
+                  style={{ borderBottom: i < BUS.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none", display: "flex", textDecoration: "none" }}
                 >
                   <span style={{ color: "rgba(255,255,255,0.28)" }} className="ls-bu-number flex items-center justify-center shrink-0 w-12">
                     <ArrowRight size={26} strokeWidth={1.75} />
@@ -1268,7 +1282,7 @@ Avalie "seoScore" e "toneScore".`;
                     <span className="block text-white font-semibold text-lg leading-tight">{b.label}</span>
                     <span className="block text-white/50 text-sm mt-0.5">{b.sub}</span>
                   </span>
-                </button>
+                </a>
               ))}
             </div>
           </div>
@@ -1334,14 +1348,16 @@ Avalie "seoScore" e "toneScore".`;
 
           <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider pl-4 pb-1">BUs</p>
           {BUS.map((b) => (
-            <button
+            <a
               key={b.id}
-              onClick={() => b.id !== activeBU && switchBU(b.id)}
+              href={`?bu=${b.id}`}
+              onClick={(e) => { e.preventDefault(); b.id !== activeBU && switchBU(b.id); }}
               className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2 rounded-lg text-sm font-medium ${b.id === activeBU ? "active" : "text-white/70"}`}
+              style={{ textDecoration: "none" }}
             >
               <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.id === activeBU ? "bg-lime-400" : "bg-white/30"}`} />
               {b.label}
-            </button>
+            </a>
           ))}
         </nav>
 
