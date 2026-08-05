@@ -180,7 +180,7 @@ function sanitizeDashes(text) {
   return text
     .replace(/\s*[—–]\s*/g, ", ")
     .replace(/,\s*,/g, ",")
-    .replace(/\s{2,}/g, " ")
+    .replace(/[^\S\n]{2,}/g, " ")  // colapsa espaços mas preserva \n
     .trim();
 }
 
@@ -900,8 +900,8 @@ export default function App() {
       : 'Não gere hashtags. Retorne "hashtags": [].';
 
     const bulletsInstr = draft.useBullets
-      ? "ESTRUTURA: quando fizer sentido pra clareza (listar dicas, etapas ou itens distintos), use bullets ou listas curtas dentro da legenda. Misture prosa e bullets — não force bullets se o texto fluir melhor em parágrafo, e não force parágrafo se uma lista deixaria mais claro."
-      : "ESTRUTURA: escreva em prosa corrida, sem bullets nem listas. Um ou dois parágrafos com quebra de linha onde o ritmo pedir.";
+      ? `ESTRUTURA OBRIGATÓRIA COM BULLETS: a legenda DEVE conter pelo menos uma lista com bullets (use • como marcador). Estruture assim: 1-2 frases de abertura em prosa, depois a lista com 3 a 5 bullets de uma linha cada (começando com •), depois 1 frase de encerramento com CTA. Use \\n para quebras de linha entre parágrafos e entre cada bullet. Exemplo de formato: "Frase de abertura.\\n\\n• Item um\\n• Item dois\\n• Item três\\n\\nFrase de encerramento."`
+      : "ESTRUTURA: escreva em prosa. Use \\n\\n para separar parágrafos distintos — não entregue tudo num bloco único sem respiro.";
 
     const urlInstr =
       urls.length > 0
