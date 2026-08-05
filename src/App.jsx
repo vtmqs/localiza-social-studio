@@ -29,6 +29,7 @@ import {
   Hash,
   Wand2,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -1345,23 +1346,42 @@ Avalie "seoScore" e "toneScore".`;
             <Bookmark size={15} />
             Legendas salvas
           </button>
+
+          <div className="mx-2 h-px my-2" style={{ background: "rgba(255,255,255,0.1)" }} />
+
+          <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider pl-4 pb-1">BUs</p>
+          {BUS.map((b) => (
+            <button
+              key={b.id}
+              onClick={() => b.id !== activeBU && switchBU(b.id)}
+              className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2 rounded-lg text-sm font-medium ${b.id === activeBU ? "active" : "text-white/70"}`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${b.id === activeBU ? "bg-lime-400" : "bg-white/30"}`} />
+              {b.label}
+            </button>
+          ))}
         </nav>
 
-        <div className="mt-auto px-6 py-6">
+        <div className="px-6 py-5 border-t" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
           {currentUser && (
-            <div className="mb-4 text-white/60 text-[11px]">
-              <span className="text-white/40">Logado como </span>
-              <span className="text-white/80 font-medium">{currentUser.name}</span>
+            <div className="mb-3">
+              <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider mb-1">Usuário</p>
+              <p className="text-white/80 text-xs font-medium">{currentUser.name}</p>
             </div>
           )}
-          <p className="text-white/45 text-[10px] font-semibold uppercase tracking-wider mb-2.5">Outras BUs</p>
-          <div className="space-y-1.5">
-            {BUS.filter((b) => b.id !== activeBU).map((b) => (
-              <button key={b.id} onClick={() => switchBU(b.id)} className="ls-side-link block w-full text-left text-white/70 text-xs py-0.5">
-                {b.label}
-              </button>
-            ))}
-          </div>
+          <button
+            onClick={async () => {
+              await storage.set("current-user", "");
+              await storage.set("app-unlocked", "");
+              setCurrentUser(null);
+              setUnlocked(false);
+              setShowRegister(false);
+            }}
+            className="flex items-center gap-2 text-white/50 text-xs hover:text-white/80 transition-colors"
+          >
+            <LogOut size={13} />
+            Sair
+          </button>
         </div>
       </aside>
 
@@ -1371,7 +1391,7 @@ Avalie "seoScore" e "toneScore".`;
             {bu.label}
           </p>
           <h2 className="text-lg font-semibold">
-            {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : "Legendas salvas"}
+            {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : "Legendas salvas"}
           </h2>
         </div>
 
