@@ -1549,7 +1549,7 @@ Avalie "seoScore" e "toneScore".`;
                   Importar template
                   <input
                     type="file"
-                    accept=".docx"
+                    accept=".docx,.txt"
                     className="hidden"
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
@@ -1557,30 +1557,22 @@ Avalie "seoScore" e "toneScore".`;
                       e.target.value = "";
                       setError("");
                       try {
-                        // Lê o docx (que é um ZIP) e extrai o texto do word/document.xml
+                        // Lê o arquivo como texto puro (.txt ou .docx simples)
                         let text = "";
                         try {
-                          const arrayBuffer = await file.arrayBuffer();
-                          // Usa a API nativa de descompressão do browser (DecompressionStream)
-                          // Docx é um ZIP — precisamos ler o XML interno
-                          // Estratégia: enviar o arquivo pro backend que extrai o texto
-                          const formData = new FormData();
-                          formData.append("file", file);
-                          // Como não temos endpoint de extração, usamos FileReader pra ler como texto
-                          // e deixamos o Gemini lidar com o XML bruto
-                          const bytes = new Uint8Array(arrayBuffer);
-                          // Extrai texto legível do XML do docx (remove tags XML)
-                          const decoder = new TextDecoder("utf-8", { fatal: false });
-                          const raw = decoder.decode(bytes);
-                          // Pega só o conteúdo dentro de <w:t> tags (texto do Word)
-                          const matches = raw.match(/<w:t[^>]*>([^<]+)<\/w:t>/g) || [];
-                          text = matches
-                            .map(m => m.replace(/<[^>]+>/g, ""))
-                            .join(" ")
-                            .replace(/\s+/g, " ")
-                            .trim();
+                          if (file.name.endsWith(".txt")) {
+                            text = await file.text();
+                          } else {
+                            // Para .docx, extrai tags <w:t> do XML interno
+                            const arrayBuffer = await file.arrayBuffer();
+                            const bytes = new Uint8Array(arrayBuffer);
+                            const decoder = new TextDecoder("utf-8", { fatal: false });
+                            const raw = decoder.decode(bytes);
+                            const matches = raw.match(/<w:t[^>]*>([^<]+)<\/w:t>/g) || [];
+                            text = matches.map(m => m.replace(/<[^>]+>/g, "")).join(" ").trim();
+                          }
                           if (!text || text.length < 20) {
-                            setError("Não consegui ler o conteúdo do arquivo. Tente salvar como .docx no Word e enviar novamente.");
+                            setError("Não consegui ler o arquivo. Use o template .txt fornecido.");
                             return;
                           }
                         } catch (readErr) {
