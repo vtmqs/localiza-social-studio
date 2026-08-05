@@ -355,6 +355,7 @@ export default function App() {
   const [authMode, setAuthMode] = useState("login"); // "login" | "register"
   const [loginPwd, setLoginPwd] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [regEmail, setRegEmail] = useState("");
   const [regName, setRegName] = useState("");
   const [regPwd, setRegPwd] = useState("");
   const [regError, setRegError] = useState("");
@@ -376,19 +377,21 @@ export default function App() {
   }, [unlocked, currentUser]);
 
   function handleRegister() {
-    if (!regName.trim()) { setRegError("Digite seu nome."); return; }
+    if (!regEmail.trim() || !regEmail.includes("@")) { setRegError("Digite um email válido."); return; }
+    if (!regName.trim()) { setRegError("Digite seu nome de exibição."); return; }
     if (regPwd.length < 6) { setRegError("A senha precisa ter pelo menos 6 caracteres."); return; }
-    const hash = hashPassword(regPwd);
-    const user = { name: regName.trim(), hash };
+    const hash = hashPassword(regEmail.trim().toLowerCase() + "|" + regPwd);
+    const user = { name: regName.trim(), email: regEmail.trim().toLowerCase(), hash };
     setCurrentUser(user);
     storage.set("current-user", JSON.stringify(user));
     setShowRegister(false);
-    storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash }).catch(() => {});
+    storageAPI({ action: "registerUser", name: regName.trim(), email: regEmail.trim().toLowerCase(), userHash: hash }).catch(() => {});
   }
 
   function handleLogin() {
+    if (!regEmail.trim() || !regEmail.includes("@")) { setLoginError("Digite seu email."); return; }
     if (!loginPwd.trim()) { setLoginError("Digite sua senha pessoal."); return; }
-    const hash = hashPassword(loginPwd);
+    const hash = hashPassword(regEmail.trim().toLowerCase() + "|" + loginPwd);
     // Verifica no servidor se o usuário existe
     storageAPI({ action: "checkUser", userHash: hash }).then((data) => {
       if (data?.exists && data?.user) {
@@ -1226,15 +1229,26 @@ Avalie "seoScore" e "toneScore".`;
 
           {authMode === "login" ? (
             <>
-              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Sua senha pessoal</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Email</label>
               <input
+                type="email"
+                value={regEmail}
+                onChange={(e) => { setRegEmail(e.target.value); setLoginError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && document.getElementById("login-pwd-input")?.focus()}
+                placeholder="seu@email.com"
+                className={inputClass}
+                style={{ marginBottom: 12 }}
+                autoFocus
+              />
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
+              <input
+                id="login-pwd-input"
                 type="password"
                 value={loginPwd}
                 onChange={(e) => { setLoginPwd(e.target.value); setLoginError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                 placeholder="Digite sua senha"
                 className={inputClass}
-                autoFocus
               />
               {loginError && <p className="text-xs mt-2" style={{ color: "#C0402A" }}>{loginError}</p>}
               <button
@@ -1247,7 +1261,17 @@ Avalie "seoScore" e "toneScore".`;
             </>
           ) : (
             <>
-              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Seu nome</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Email</label>
+              <input
+                type="email"
+                value={regEmail}
+                onChange={(e) => { setRegEmail(e.target.value); setRegError(""); }}
+                placeholder="seu@email.com"
+                className={inputClass}
+                style={{ marginBottom: 12 }}
+                autoFocus
+              />
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Nome de exibição</label>
               <input
                 type="text"
                 value={regName}
@@ -1255,7 +1279,6 @@ Avalie "seoScore" e "toneScore".`;
                 placeholder="Ex: Vitória"
                 className={inputClass}
                 style={{ marginBottom: 12 }}
-                autoFocus
               />
               <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
               <input
