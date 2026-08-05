@@ -560,8 +560,6 @@ export default function App() {
   const savePreset = async () => {
     if (!formPreset.title.trim()) { setTitleError(true); return; }
     setTitleError(false);
-    console.time("savePreset-total");
-    console.time("savePreset-local");
     const list = presets[activeBU] || [];
     let savedId;
     let preset;
@@ -583,22 +581,20 @@ export default function App() {
     if (!draft.presetId) setDraft((d) => ({ ...d, presetId: savedId }));
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 1800);
-    console.timeEnd("savePreset-local");
-    console.log("UI atualizada — iniciando sync background");
-    console.timeEnd("savePreset-total");
 
     // Sincroniza com Upstash em background (com retry silencioso)
     const sync = async () => {
       for (let i = 0; i < 3; i++) {
         try {
-          await storageAPI({ action: "savePreset", bu: activeBU, userHash: currentUser?.hash, preset, visibility: preset.visibility || presetVisibility });
+          const result = await storageAPI({ action: "savePreset", bu: activeBU, userHash: currentUser?.hash, preset, visibility: preset.visibility || presetVisibility });
+          if (result.error) throw new Error(result.error);
           return; // sucesso
-        } catch {
-          await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+        } catch (e) {
+          console.error(`Sync tentativa ${i+1} falhou:`, e.message);
+          if (i === 2) setError(`Estilo salvo localmente mas falhou no servidor: ${e.message}`);
+          else await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
         }
       }
-      // Se falhou 3x, avisa discretamente sem bloquear nada
-      console.warn("Não conseguiu sincronizar o estilo com o servidor. Está salvo localmente.");
     };
     sync();
   };
@@ -1653,8 +1649,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="Regras da marca (o que pode e o que não pode)">
                     <textarea
-                      value={formPreset.regras}
-                      onChange={(e) => updateFormField("regras", e.target.value)}
+                      key={editingId + ".regras"}
+                      defaultValue={formPreset.regras}
+                      onBlur={(e) => updateFormField("regras", e.target.value)}
                       placeholder="Ex: não citar concorrentes pelo nome, não comparar diretamente com X, mencionar Y só de forma informativa..."
                       className={`${inputClass} min-h-[72px]`}
                     />
@@ -1662,8 +1659,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="Eixo editorial">
                     <textarea
-                      value={formPreset.eixo}
-                      onChange={(e) => updateFormField("eixo", e.target.value)}
+                      key={editingId + ".eixo"}
+                      defaultValue={formPreset.eixo}
+                      onBlur={(e) => updateFormField("eixo", e.target.value)}
                       placeholder="Ex: liberdade, mobilidade sem burocracia, praticidade no dia a dia..."
                       className={`${inputClass} min-h-[56px]`}
                     />
@@ -1671,8 +1669,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="Fio condutor">
                     <textarea
-                      value={formPreset.fioCondutor}
-                      onChange={(e) => updateFormField("fioCondutor", e.target.value)}
+                      key={editingId + ".fioCondutor"}
+                      defaultValue={formPreset.fioCondutor}
+                      onBlur={(e) => updateFormField("fioCondutor", e.target.value)}
                       placeholder="Ex: toda legenda deve conectar o assunto do post de volta à ideia de simplificar a vida de quem dirige..."
                       className={`${inputClass} min-h-[56px]`}
                     />
@@ -1801,8 +1800,9 @@ Avalie "seoScore" e "toneScore".`;
                     </p>
                     {formPreset.insights && (
                       <textarea
-                        value={formPreset.insights}
-                        onChange={(e) => updateFormField("insights", e.target.value)}
+                        key={editingId + ".insights"}
+                        defaultValue={formPreset.insights}
+                        onBlur={(e) => updateFormField("insights", e.target.value)}
                         className={`${inputClass} min-h-[120px]`}
                       />
                     )}
@@ -1810,8 +1810,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="Tom de voz geral">
                     <textarea
-                      value={formPreset.tomGeral}
-                      onChange={(e) => updateFormField("tomGeral", e.target.value)}
+                      key={editingId + ".tomGeral"}
+                      defaultValue={formPreset.tomGeral}
+                      onBlur={(e) => updateFormField("tomGeral", e.target.value)}
                       placeholder="Ex: próximo, confiante, sem ser informal demais..."
                       className={`${inputClass} min-h-[64px]`}
                     />
@@ -1819,8 +1820,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="O que evitar">
                     <textarea
-                      value={formPreset.evitar}
-                      onChange={(e) => updateFormField("evitar", e.target.value)}
+                      key={editingId + ".evitar"}
+                      defaultValue={formPreset.evitar}
+                      onBlur={(e) => updateFormField("evitar", e.target.value)}
                       placeholder="Termos, tons ou construções a evitar"
                       className={`${inputClass} min-h-[56px]`}
                     />
@@ -1828,8 +1830,9 @@ Avalie "seoScore" e "toneScore".`;
 
                   <Field label="Exemplos de legendas (opcional)">
                     <textarea
-                      value={formPreset.exemplos}
-                      onChange={(e) => updateFormField("exemplos", e.target.value)}
+                      key={editingId + ".exemplos"}
+                      defaultValue={formPreset.exemplos}
+                      onBlur={(e) => updateFormField("exemplos", e.target.value)}
                       placeholder="Cole 1 ou 2 legendas de referência"
                       className={`${inputClass} min-h-[56px]`}
                     />
