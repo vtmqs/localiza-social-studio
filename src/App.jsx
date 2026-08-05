@@ -352,6 +352,9 @@ export default function App() {
   // Usuário cadastrado
   const [currentUser, setCurrentUser] = useState(null); // { name, hash }
   const [showRegister, setShowRegister] = useState(false);
+  const [authMode, setAuthMode] = useState("login"); // "login" | "register"
+  const [loginPwd, setLoginPwd] = useState("");
+  const [loginError, setLoginError] = useState("");
   const [regName, setRegName] = useState("");
   const [regPwd, setRegPwd] = useState("");
   const [regError, setRegError] = useState("");
@@ -377,12 +380,26 @@ export default function App() {
     if (regPwd.length < 6) { setRegError("A senha precisa ter pelo menos 6 caracteres."); return; }
     const hash = hashPassword(regPwd);
     const user = { name: regName.trim(), hash };
-    // Salva localmente e libera a tela imediatamente (sem aguardar rede)
     setCurrentUser(user);
     storage.set("current-user", JSON.stringify(user));
     setShowRegister(false);
-    // Sincroniza com o servidor em background (não bloqueia o usuário)
     storageAPI({ action: "registerUser", name: regName.trim(), userHash: hash }).catch(() => {});
+  }
+
+  function handleLogin() {
+    if (!loginPwd.trim()) { setLoginError("Digite sua senha pessoal."); return; }
+    const hash = hashPassword(loginPwd);
+    // Verifica no servidor se o usuário existe
+    storageAPI({ action: "checkUser", userHash: hash }).then((data) => {
+      if (data?.exists && data?.user) {
+        const user = { name: data.user.name, hash };
+        setCurrentUser(user);
+        storage.set("current-user", JSON.stringify(user));
+        setShowRegister(false);
+      } else {
+        setLoginError("Senha incorreta ou usuário não encontrado.");
+      }
+    }).catch(() => setLoginError("Erro ao conectar. Tenta de novo."));
   }
 
   const [screen, setScreen] = useState(() => {
@@ -1166,7 +1183,7 @@ Avalie "seoScore" e "toneScore".`;
     );
   }
 
-  // ---------- CADASTRO ----------
+  // ---------- LOGIN / CADASTRO ----------
   if (unlocked && showRegister) {
     return (
       <div
@@ -1176,37 +1193,78 @@ Avalie "seoScore" e "toneScore".`;
       >
         <GlobalStyle />
         <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
-          <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">Criar seu perfil</h1>
-          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>Preencha pra começar. Esses dados ficam salvos pra você não precisar repetir.</p>
-          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Seu nome</label>
-          <input
-            type="text"
-            value={regName}
-            onChange={(e) => { setRegName(e.target.value); setRegError(""); }}
-            placeholder="Ex: Vitória"
-            className={inputClass}
-            style={{ marginBottom: 12 }}
-          />
-          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
-          <input
-            type="password"
-            value={regPwd}
-            onChange={(e) => { setRegPwd(e.target.value); setRegError(""); }}
-            placeholder="Mínimo 6 caracteres"
-            className={inputClass}
-          />
-          <p className="text-[11px] mt-1.5 mb-4" style={{ color: "#8A6A1F" }}>
-            Use uma senha que você não usa em nenhum outro lugar, pois ela protege seus estilos privados nesta ferramenta.
-          </p>
-          {regError && <p className="text-xs mb-3" style={{ color: "#C0402A" }}>{regError}</p>}
-          <button
-            onClick={handleRegister}
-            disabled={regLoading}
-            style={{ background: GREEN }}
-            className="w-full text-white text-sm font-medium rounded-lg py-2.5 hover:opacity-90 transition-opacity disabled:opacity-60"
-          >
-            {regLoading ? "Criando..." : "Criar perfil e entrar"}
-          </button>
+          <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">Social Studio</h1>
+          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>Acesso restrito ao time de conteúdo</p>
+
+          {/* Tabs */}
+          <div className="flex rounded-lg overflow-hidden border mb-5" style={{ borderColor: BORDER }}>
+            {[["login", "Entrar"], ["register", "Criar conta"]].map(([mode, label]) => (
+              <button
+                key={mode}
+                onClick={() => { setAuthMode(mode); setLoginError(""); setRegError(""); }}
+                className="flex-1 py-2 text-sm font-medium transition-colors"
+                style={authMode === mode ? { background: GREEN, color: "#FFF" } : { background: "#FFF", color: MUTED }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {authMode === "login" ? (
+            <>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Sua senha pessoal</label>
+              <input
+                type="password"
+                value={loginPwd}
+                onChange={(e) => { setLoginPwd(e.target.value); setLoginError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                placeholder="Digite sua senha"
+                className={inputClass}
+                autoFocus
+              />
+              {loginError && <p className="text-xs mt-2" style={{ color: "#C0402A" }}>{loginError}</p>}
+              <button
+                onClick={handleLogin}
+                style={{ background: GREEN }}
+                className="w-full text-white text-sm font-medium rounded-lg py-2.5 mt-4 hover:opacity-90 transition-opacity"
+              >
+                Entrar
+              </button>
+            </>
+          ) : (
+            <>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Seu nome</label>
+              <input
+                type="text"
+                value={regName}
+                onChange={(e) => { setRegName(e.target.value); setRegError(""); }}
+                placeholder="Ex: Vitória"
+                className={inputClass}
+                style={{ marginBottom: 12 }}
+                autoFocus
+              />
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
+              <input
+                type="password"
+                value={regPwd}
+                onChange={(e) => { setRegPwd(e.target.value); setRegError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+                placeholder="Mínimo 6 caracteres"
+                className={inputClass}
+              />
+              <p className="text-[11px] mt-1.5 mb-4" style={{ color: "#8A6A1F" }}>
+                Use uma senha que você não usa em nenhum outro lugar, pois ela protege seus estilos privados nesta ferramenta.
+              </p>
+              {regError && <p className="text-xs mb-3" style={{ color: "#C0402A" }}>{regError}</p>}
+              <button
+                onClick={handleRegister}
+                style={{ background: GREEN }}
+                className="w-full text-white text-sm font-medium rounded-lg py-2.5 hover:opacity-90 transition-opacity"
+              >
+                Criar conta e entrar
+              </button>
+            </>
+          )}
         </div>
       </div>
     );
