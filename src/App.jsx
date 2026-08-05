@@ -447,6 +447,7 @@ export default function App() {
   const [draft, setDraft] = useState(emptyDraft());
   const [kwLoading, setKwLoading] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
+  const [titleLoading, setTitleLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
   const [errorModal, setErrorModal] = useState("");
@@ -2392,7 +2393,10 @@ Avalie "seoScore" e "toneScore".`;
                   <div className="mt-4 pt-4 border-t" style={{ borderColor: BORDER }}>
                     <p className="text-xs font-semibold mb-2" style={{ color: MUTED }}>YouTube · título do vídeo</p>
                     <button
+                      disabled={titleLoading}
                       onClick={async () => {
+                        if (!draft.topic && !draft.existingCaption) { setError("Descreve o tópico do post antes de gerar o título."); return; }
+                        setTitleLoading(true);
                         try {
                           const { text } = await callAI({
                             system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
@@ -2404,13 +2408,17 @@ Avalie "seoScore" e "toneScore".`;
                             ...(prev || {}),
                             youtube: { legenda: "", hashtags: [], seoScore: 0, toneScore: 0, ...(prev?.youtube || {}), titulo_youtube: titulo },
                           }));
-                        } catch(e) { setError("Não consegui gerar o título agora."); }
+                        } catch(e) {
+                          setError(`Não consegui gerar o título: ${e.message}`);
+                        } finally {
+                          setTitleLoading(false);
+                        }
                       }}
                       style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
-                      className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity"
+                      className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity disabled:opacity-60"
                     >
-                      <PlayCircle size={16} />
-                      Criar título do YouTube
+                      {titleLoading ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
+                      {titleLoading ? "Gerando título..." : "Criar título do YouTube"}
                     </button>
                   </div>
                 )}
