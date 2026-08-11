@@ -516,17 +516,32 @@ export default function App() {
     if (!regEmail.trim() || !regEmail.includes("@")) { setLoginError("Digite seu email."); return; }
     if (!loginPwd.trim()) { setLoginError("Digite sua senha pessoal."); return; }
     const hash = hashPassword(regEmail.trim().toLowerCase() + "|" + loginPwd);
-    // Verifica no servidor se o usuário existe
-    storageAPI({ action: "checkUser", userHash: hash }).then((data) => {
+    const emailLower = regEmail.trim().toLowerCase();
+    storageAPI({ action: "checkUser", userHash: hash, email: emailLower }).then((data) => {
       if (data?.exists && data?.user) {
-        const user = { name: data.user.name, hash, email: regEmail.trim().toLowerCase(), role: data.user.role || "user" };
+        const user = { name: data.user.name, hash, email: emailLower, role: data.user.role || "user" };
         setCurrentUser(user);
         storage.set("current-user", JSON.stringify(user));
         setShowRegister(false);
       } else {
-        setLoginError("Senha incorreta ou usuário não encontrado.");
+        // Usuário pode estar no localStorage mas não no Sheets ainda
+        // Tenta recuperar pelo localStorage
+        try {
+          const saved = localStorage.getItem("current-user");
+          if (saved) {
+            const savedUser = JSON.parse(saved);
+            if (savedUser.hash === hash) {
+              setCurrentUser(savedUser);
+              setShowRegister(false);
+              // Re-registra no Sheets em background
+              storageAPI({ action: "registerUser", name: savedUser.name, userHash: hash, email: emailLower }).catch(() => {});
+              return;
+            }
+          }
+        } catch {}
+        setLoginError("Email ou senha incorretos.");
       }
-    }).catch(() => setLoginError("Erro ao conectar. Tenta de novo."));
+    }).catch(() => setLoginError("Erro ao conectar. Verifica sua conexão e tenta de novo."));
   }
 
   const [screen, setScreen] = useState(() => {
