@@ -459,6 +459,59 @@ const GlobalStyle = () => (
     input[type="checkbox"] { accent-color: #01652A; width: 15px; height: 15px; cursor: pointer; }
     html.dark input[type="checkbox"] { accent-color: #78DE1F; }
 
+    /* Correções de texto escuro no dark mode */
+    /* Verde escuro → texto claro */
+    html.dark [style*="color: #01652A"],
+    html.dark [style*="color: #014A1F"],
+    html.dark [style*="color: #013318"],
+    html.dark [style*="color: #16241A"] { color: var(--dk-text) !important; }
+
+    /* Marrom/alaranjado escuro (erros, alertas) → manter mas mais claro */
+    html.dark [style*="color: \"#8A3A1F\""],
+    html.dark [style*="color: \"#5B3A2F\""] { color: #f8a88a !important; }
+    html.dark [style*="color: \"#8A6A1F\""] { color: #f5d08a !important; }
+
+    /* Backgrounds de alerta/erro → tom dark */
+    html.dark [style*="background: \"#FBEDE7\""] { background: rgba(200,80,60,0.15) !important; }
+    html.dark [style*="background: \"#FEF3C7\""] { background: rgba(180,140,0,0.15) !important; }
+    html.dark [style*="background: \"#FEE2E2\""] { background: rgba(200,50,50,0.15) !important; }
+
+    /* GREEN_DARK em texto sobre fundo claro → verde lima no dark */
+    html.dark h1, html.dark h2, html.dark h3 { color: var(--dk-text) !important; }
+    html.dark [style*="color: GREEN_DARK"] { color: #78DE1F !important; }
+
+    /* Botão primário (LIME) — mantém o verde lima, ajusta texto pra legível */
+    html.dark .ls-btn-primary { box-shadow: 0 4px 14px rgba(120,222,31,0.25); }
+
+    /* Inputs, selects e textareas */
+    html.dark input:not([type="checkbox"]),
+    html.dark textarea,
+    html.dark select {
+      background: var(--dk-input) !important;
+      color: var(--dk-text) !important;
+      border-color: var(--dk-border) !important;
+    }
+
+    /* Chips de qualidade de KW — legíveis no dark */
+    html.dark [style*="background: \"#DCFCE7\""] { background: rgba(74,222,128,0.15) !important; color: #6ee7a0 !important; }
+    html.dark [style*="background: \"#FEF3C7\""] { background: rgba(250,204,21,0.15) !important; color: #fde68a !important; }
+    html.dark [style*="background: \"#FEE2E2\""] { background: rgba(248,113,113,0.15) !important; color: #fca5a5 !important; }
+
+    /* Badges de visibilidade */
+    html.dark [style*="background: \"#EAF9DC\""] { background: rgba(120,222,31,0.15) !important; }
+    html.dark [style*="background: \"#F0F4F3\""],
+    html.dark [style*="background: \"#F6F9F6\""] { background: var(--dk-surface) !important; }
+
+    /* Preview de legenda no dark */
+    html.dark [style*="background: linear-gradient(135deg,#f9f9f9"] { background: var(--dk-card) !important; color: var(--dk-text) !important; }
+    html.dark [style*="background: #f3f6f8"] { background: var(--dk-surface) !important; color: var(--dk-text) !important; }
+
+    /* Qualquer span/p com cor explicitamente escura */
+    html.dark span[style*="color: #"],
+    html.dark p[style*="color: #"] { color: var(--dk-text); }
+    html.dark span[style*="color: MUTED"],
+    html.dark p[style*="color: MUTED"] { color: var(--dk-muted) !important; }
+
     /* Transição suave ao trocar tema */
     * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
     /* Exceto imagens e SVGs */
