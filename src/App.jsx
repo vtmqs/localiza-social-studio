@@ -673,9 +673,10 @@ export default function App() {
 
   // Chat assistente
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { role: "assistant", content: "Oi! 👋 Sou o assistente do Social Studio. Posso te ajudar com qualquer dúvida sobre a ferramenta, sugerir atalhos ou explicar como usar cada funcionalidade. Como posso ajudar?" }
-  ]);
+  const [chatMessages, setChatMessages] = useState(() => {
+    const nome = currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : "";
+    return [{ role: "assistant", content: `Oi${nome}! 👋 Sou o assistente do Social Studio. Posso te ajudar com qualquer dúvida sobre a ferramenta, sugerir atalhos ou explicar como usar cada funcionalidade. Como posso ajudar?` }];
+  });
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = React.useRef(null);
@@ -694,20 +695,18 @@ export default function App() {
     setChatMessages(newMessages);
     setChatLoading(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          system: `${CHAT_SYSTEM_PROMPT}`,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          messages: newMessages,
+          userName: currentUser?.name || null,
         }),
       });
       const data = await res.json();
-      const reply = data.content?.[0]?.text || "Não consegui responder agora. Tenta de novo!";
-      setChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    } catch {
+      if (data.error) throw new Error(data.error);
+      setChatMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+    } catch (e) {
       setChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar. Verifica sua conexão e tenta de novo." }]);
     } finally {
       setChatLoading(false);
