@@ -395,6 +395,7 @@ const GlobalStyle = () => (
     /* Textos */
     html.dark, html.dark p, html.dark span, html.dark div, html.dark h1, html.dark h2, html.dark h3, html.dark label, html.dark button, html.dark a { color: var(--dk-text); }
     html.dark [style*="color: #16241A"], html.dark [style*="color: #014A1F"], html.dark [style*="color: #01652A"], html.dark [style*="color: #013318"] { color: var(--dk-text) !important; }
+    html.dark label, html.dark .flex.items-center.gap-2 span { color: var(--dk-text) !important; }
 
     /* Cards e painéis brancos */
     html.dark .bg-white,
@@ -449,6 +450,14 @@ const GlobalStyle = () => (
 
     /* Scrollbar dark */
     html.dark * { scrollbar-color: var(--dk-border) transparent; }
+
+    /* Checkboxes verdes e labels legíveis */
+    .ls-check-label { color: #16241A; }
+    .ls-check-icon { color: #5B6B60; }
+    html.dark .ls-check-label { color: var(--dk-text) !important; }
+    html.dark .ls-check-icon { color: var(--dk-muted) !important; }
+    input[type="checkbox"] { accent-color: #01652A; width: 15px; height: 15px; cursor: pointer; }
+    html.dark input[type="checkbox"] { accent-color: #78DE1F; }
 
     /* Transição suave ao trocar tema */
     * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
@@ -2886,24 +2895,24 @@ data-onboard="library-btn"
                 </div>
 
                 <div className="mb-2 flex flex-wrap gap-4">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: T.TEXT }}>
+                  <label className="ls-check-label flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={draft.useEmojis} onChange={(e) => setDraft((d) => ({ ...d, useEmojis: e.target.checked }))} />
-                    <Smile size={15} style={{ color: T.MUTED }} />
+                    <Smile size={15} className="ls-check-icon" />
                     Usar emojis
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: T.TEXT }}>
+                  <label className="ls-check-label flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={draft.useHashtags} onChange={(e) => setDraft((d) => ({ ...d, useHashtags: e.target.checked }))} />
-                    <Hash size={15} style={{ color: T.MUTED }} />
+                    <Hash size={15} className="ls-check-icon" />
                     Incluir hashtags
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: T.TEXT }}>
+                  <label className="ls-check-label flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={draft.useBullets} onChange={(e) => setDraft((d) => ({ ...d, useBullets: e.target.checked }))} />
-                    <List size={15} style={{ color: T.MUTED }} />
+                    <List size={15} className="ls-check-icon" />
                     Incluir bullets
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: T.TEXT }}>
+                  <label className="ls-check-label flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={draft.citarLocaliza} onChange={(e) => setDraft((d) => ({ ...d, citarLocaliza: e.target.checked }))} />
-                    <Building2 size={15} style={{ color: T.MUTED }} />
+                    <Building2 size={15} className="ls-check-icon" />
                     Citar Localiza
                   </label>
                 </div>
