@@ -1074,15 +1074,18 @@ export default function App() {
     } catch {}
     setLibraryLoaded((prev) => ({ ...prev, [buId]: true }));
     // Sincroniza com Sheets em background
-    storageAPI({ action: "listCaptions", bu: buId, requesterHash: null, requesterRole: "user" })
+    storageAPI({ action: "listCaptions", bu: buId, requesterHash: currentUser?.hash || null, requesterRole: currentUser?.role || "user" })
       .then(data => {
         const list = data.captions || [];
-        setLibrary((prev) => ({ ...prev, [buId]: list }));
-        localStorage.setItem(`captions-cache:${buId}`, JSON.stringify(list));
+        // Só substitui se o Sheets tiver pelo menos tanta coisa quanto o cache
+        // (evita apagar legendas locais por falha temporária do Sheets)
+        const cachedRaw = localStorage.getItem(`captions-cache:${buId}`);
+        const cached = cachedRaw ? JSON.parse(cachedRaw) : [];
+        const merged = list.length >= cached.length ? list : cached;
+        setLibrary((prev) => ({ ...prev, [buId]: merged }));
+        localStorage.setItem(`captions-cache:${buId}`, JSON.stringify(merged));
       }).catch(() => {});
-  }, []);
-
-  // Atalhos de teclado
+  }, [currentUser]);
   useEffect(() => {
     const handler = (e) => {
       if (!results && !genLoading) return;
