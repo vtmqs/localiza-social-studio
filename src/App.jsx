@@ -1322,41 +1322,31 @@ Retorne este JSON exato:
     }));
   };
 
-  const addKeyword = () => {
+  const addKeyword = async () => {
     const kw = draft.keywordInput.trim();
     if (!kw) return;
     const exists = draft.keywords.some(k => (typeof k === "object" ? k.kw : k).toLowerCase() === kw.toLowerCase());
     if (exists) { setDraft(d => ({ ...d, keywordInput: "" })); return; }
+    setDraft(d => ({ ...d, keywordInput: "" }));
 
-    // Avaliação local determinística — sem Gemini, sem async, sem falha
-    const kwLower = kw.toLowerCase();
-    const goodTerms = [
-      "carro", "car", "aluguel", "aluga", "alugar", "veículo", "veiculo", "auto",
-      "viagem", "viajar", "viaje", "rota", "destino", "estrada", "rodovia", "km",
-      "motorista", "dirigir", "direção", "direcao", "volante", "gasolina", "combustível", "combustivel",
-      "seguro", "reserva", "reservar", "categoria", "modelo", "suv", "sedan", "hatch",
-      "pickup", "minivan", "elétrico", "eletrico", "híbrido", "hibrido",
-      "localiza", "rac", "zarp", "seminovo", "assinatura", "caminhão", "caminhao",
-      "frota", "locação", "locacao", "mobilidade", "transporte", "aeroporto", "transfer",
-      "byd", "toyota", "volkswagen", "fiat", "chevrolet", "hyundai", "honda", "renault",
-      "uber", "app", "aplicativo", "cnh", "habilitação", "habilitacao",
-      "quilômetro", "quilometro", "pecas", "manutenção", "manutencao",
-    ];
-    const mediumTerms = [
-      "viagem", "trip", "turismo", "turista", "férias", "ferias", "passeio",
-      "família", "familia", "negócio", "negocio", "executivo", "corporativo",
-      "economia", "economizar", "preço", "preco", "custo", "valor", "barato",
-      "dica", "guia", "como", "melhor", "top", "ranking",
-    ];
-
-    let quality = "low";
-    if (goodTerms.some(t => kwLower.includes(t) || t.includes(kwLower))) quality = "good";
-    else if (mediumTerms.some(t => kwLower.includes(t) || t.includes(kwLower))) quality = "medium";
+    // Usa o mesmo endpoint de geração pra avaliar a KW com contexto real do tópico
+    let quality = "medium";
+    try {
+      const topico = draft.topic || draft.existingCaption || "";
+      const buLabel = BUS.find(b => b.id === activeBU)?.label || "Localiza";
+      const { text } = await callAI({
+        system: `Você avalia se uma palavra-chave é relevante para um post de redes sociais. Responda SOMENTE com um JSON: {"quality":"good"} ou {"quality":"medium"} ou {"quality":"low"}. Nada mais. good = palavra diretamente relevante pro tema do post e pra ${buLabel}; medium = relacionada de forma ampla; low = sem relevância semântica ou de SEO pra esse contexto.`,
+        prompt: `Tópico do post: "${topico || buLabel}"
+Palavra-chave a avaliar: "${kw}"`,
+        useSearch: false,
+      });
+      const match = text.match(/good|medium|low/);
+      if (match) quality = match[0];
+    } catch {}
 
     setDraft(d => ({
       ...d,
       keywords: [...d.keywords, { kw, quality }],
-      keywordInput: "",
     }));
   };
 
@@ -1451,13 +1441,22 @@ Retorne este JSON exato:
     setKwLoading(true);
     try {
       const system =
-        "Você é um estrategista de conteúdo e SEO para redes sociais no Brasil. Responda SOMENTE com um array JSON de strings, sem markdown, sem explicações, sem texto antes ou depois. Cada string precisa ser uma palavra-chave ou expressão completa e com sentido, do jeito que alguém realmente buscaria ou usaria numa legenda, nunca um termo solto, truncado ou sem contexto.";
+        `Você é um estrategista de conteúdo e SEO para redes sociais no Brasil. Responda SOMENTE com um array JSON de objetos, sem markdown. Formato: [{"kw": "palavra-chave", "quality": "good|medium|low"}]. quality: good = diretamente relevante pro tema e com boa intenção de busca; medium = relacionado mas genérico; low = pouco relevante ou volume baixo.`;
       const prompt = `Marca/BU: ${bu.label} (${bu.sub}), do grupo Localiza.\nTópico/conteúdo do post: ${baseTexto}\n\nPesquise na web e sugira palavras-chave relevantes pra esse post, combinando três grupos: (1) as específicas e diretas sobre o tema do post, (2) variações e termos similares/semanticamente relacionados que as pessoas também buscam sobre esse mesmo assunto, e (3) termos mais amplos que conectem o tema à marca ${bu.label} (${bu.sub}), mesmo que não sejam a busca exata. Não se limite ao termo literal do tópico, mas cada sugestão precisa fazer sentido sozinha como expressão completa. Retorne de 8 a 12 palavras-chave em português do Brasil.`;
       const { text } = await callAI({ system, prompt, useSearch: true });
       const kws = extractJSON(text);
       if (Array.isArray(kws)) {
-        const termos = kws.map((k) => (typeof k === "string" ? k : k.termo)).filter(Boolean);
-        setDraft((d) => ({ ...d, keywords: [...new Set([...d.keywords, ...termos])] }));
+        const novos = kws.map((k) => {
+          if (typeof k === "string") return { kw: k, quality: "medium" };
+          if (k.kw) return { kw: k.kw, quality: k.quality || "medium" };
+          if (k.termo) return { kw: k.termo, quality: "medium" };
+          return null;
+        }).filter(Boolean);
+        setDraft((d) => {
+          const existentes = new Set(d.keywords.map(x => typeof x === "object" ? x.kw : x));
+          const novosUnicos = novos.filter(n => !existentes.has(n.kw));
+          return { ...d, keywords: [...d.keywords, ...novosUnicos] };
+        });
       }
     } catch (e) {
       if (!silent) setError("Não consegui pesquisar palavras-chave agora. Tenta de novo em instantes.");
@@ -3589,7 +3588,7 @@ data-onboard="library-btn"
                   <div className="flex flex-wrap gap-2 mb-2">
                     {draft.keywords.map((kwObj) => {
                       const kw = typeof kwObj === "object" ? kwObj.kw : kwObj;
-                      const quality = typeof kwObj === "object" ? kwObj.quality : "good";
+                      const quality = typeof kwObj === "object" ? (kwObj.quality || "medium") : "low";
                       const qualityColor = quality === "good" ? "#166534" : quality === "medium" ? "#92400E" : "#7F1D1D";
                       const qualityBg = quality === "good" ? "#DCFCE7" : quality === "medium" ? "#FEF3C7" : "#FEE2E2";
                       const qualityBorder = quality === "good" ? "#86EFAC" : quality === "medium" ? "#FCD34D" : "#FCA5A5";
