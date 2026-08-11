@@ -291,6 +291,22 @@ const ONBOARDING_STEPS = [
     position: "right",
     autoAdvance: "page:library",
   },
+  {
+    id: "chat",
+    title: "6. Assistente sempre disponível 🤖",
+    desc: "O botão verde no canto inferior direito é o seu assistente. Ele conhece tudo sobre a ferramenta e pode te ajudar com dúvidas, sugerir atalhos e dar dicas. É só clicar!",
+    target: "[data-onboard='chat-btn']",
+    position: "top",
+    autoAdvance: null,
+  },
+  {
+    id: "done",
+    title: "Tudo pronto! 🎉",
+    desc: "Você conhece os recursos principais do Social Studio. Lembre-se: quanto mais completo o estilo da BU, melhor a legenda gerada. Boas criações!",
+    target: null,
+    position: "center",
+    autoAdvance: null,
+  },
 ];
 
 
@@ -645,7 +661,7 @@ function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, i
             <button onClick={onPrev} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>‹ Voltar</button>
           )}
           <button onClick={isLast ? onDone : onNext} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "#01652A" }}>
-            {isLast ? "Começar!" : step.autoAdvance ? "Pular passo →" : "Próximo →"}
+            {isLast ? "Entendi como usar! ✓" : step.autoAdvance ? "Pular passo →" : "Próximo →"}
           </button>
         </div>
         <div className="flex justify-center gap-1 mt-3">
@@ -3911,6 +3927,7 @@ Crie/otimize o título:`,
         onClick={() => { if (chatOpen) setChatOpen(false); else openChat(); }}
         className="w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
         style={{ background: GREEN, boxShadow: "0 4px 20px rgba(1,101,42,0.4)" }}
+        data-onboard="chat-btn"
         title="Assistente da ferramenta"
       >
         {chatOpen ? <X size={20} /> : <MessageCircle size={20} />}
