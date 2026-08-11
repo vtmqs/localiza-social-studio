@@ -41,6 +41,7 @@ import {
   Calendar,
   MessageCircle,
   Send,
+  HelpCircle,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -2023,6 +2024,16 @@ data-onboard="library-btn"
           >
             <LogOut size={13} />
             Sair
+          </button>
+          <button
+            onClick={() => {
+              localStorage.removeItem("onboard-done");
+              setOnboardStep(0);
+            }}
+            className="flex items-center gap-2 text-white/40 text-xs hover:text-white/70 transition-colors mt-2"
+          >
+            <HelpCircle size={13} />
+            Refazer tutorial
           </button>
         </div>
         </div>{/* fim do div colapsável mobile */}
