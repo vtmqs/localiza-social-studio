@@ -1820,8 +1820,9 @@ Avalie "seoScore" e "toneScore".`;
 
   const [publishDateModal, setPublishDateModal] = useState(null);
   const [publishDateInput, setPublishDateInput] = useState("");
+  const [captionNameInput, setCaptionNameInput] = useState("");
 
-  const doSaveCaption = async (platformId, destaque, publishDate = "") => {
+  const doSaveCaption = async (platformId, destaque, publishDate = "", captionName = "") => {
     const r = results?.[platformId];
     if (!r || !activeBU) return;
     setSavingCaption((prev) => ({ ...prev, [platformId]: true }));
@@ -1833,7 +1834,7 @@ Avalie "seoScore" e "toneScore".`;
         legenda: r.legenda,
         hashtags: r.hashtags || [],
         titulo_youtube: platformId === "youtube" ? (r.titulo_youtube || "") : undefined,
-        topico: draft.mode === "otimizar" ? draft.existingCaption.slice(0, 80) : draft.topic,
+        topico: captionName || (draft.mode === "otimizar" ? draft.existingCaption.slice(0, 80) : draft.topic),
         presetTitle: activeGenPreset?.title || "",
         seoScore: r.seoScore,
         toneScore: r.toneScore,
@@ -1864,6 +1865,8 @@ Avalie "seoScore" e "toneScore".`;
   };
 
   const saveCaption = (platformId, destaque) => {
+    const suggested = (draft.topic || draft.existingCaption || "").slice(0, 40).trim();
+    setCaptionNameInput(suggested);
     setPublishDateModal({ platformId, destaque });
     setPublishDateInput("");
   };
@@ -3882,8 +3885,21 @@ Crie/otimize o título:`,
     {publishDateModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
         <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: "#FFFFFF", color: TEXT }}>
-          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Data de publicação</p>
-          <p className="text-sm mb-4" style={{ color: MUTED }}>Opcional, ajuda a organizar o calendário editorial.</p>
+          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Salvar legenda</p>
+          <p className="text-xs mb-4" style={{ color: MUTED }}>Dê um nome curto e escolha a data de publicação (opcional).</p>
+          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Nome da legenda</label>
+          <input
+            type="text"
+            value={captionNameInput}
+            onChange={e => setCaptionNameInput(e.target.value)}
+            placeholder="Ex: Nova campanha BYD, Stories Zarp maio..."
+            maxLength={60}
+            className="w-full border rounded-lg px-3 py-2 text-sm mb-1"
+            style={{ borderColor: BORDER }}
+            autoFocus
+          />
+          <p className="text-[10px] mb-4 text-right" style={{ color: MUTED }}>{captionNameInput.length}/60</p>
+          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Data de publicação <span style={{ fontWeight: 400 }}>(opcional)</span></label>
           <input
             type="date"
             value={publishDateInput}
@@ -3893,7 +3909,7 @@ Crie/otimize o título:`,
           />
           <div className="flex gap-2">
             <button
-              onClick={() => { setPublishDateModal(null); doSaveCaption(publishDateModal.platformId, publishDateModal.destaque, publishDateInput); }}
+              onClick={() => { setPublishDateModal(null); doSaveCaption(publishDateModal.platformId, publishDateModal.destaque, publishDateInput, captionNameInput); }}
               className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
               style={{ background: GREEN }}
             >
