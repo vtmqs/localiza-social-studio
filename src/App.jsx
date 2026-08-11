@@ -606,30 +606,73 @@ function ScoreRing({ label, value }) {
 
 function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, isLast }) {
   const [targetRect, setTargetRect] = React.useState(null);
+  const [popupPos, setPopupPos] = React.useState({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+  const POPUP_W = 300;
+  const POPUP_H = 220; // altura estimada do popup
+  const GAP = 12;
 
   React.useEffect(() => {
-    if (!step.target) { setTargetRect(null); return; }
-    const el = document.querySelector(step.target);
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    } else {
+    if (!step.target) {
       setTargetRect(null);
+      setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+      return;
     }
-  }, [step]);
+    const el = document.querySelector(step.target);
+    if (!el) {
+      setTargetRect(null);
+      setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Espera o scroll terminar antes de calcular
+    setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      const r = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      setTargetRect(r);
 
-  const popupStyle = (() => {
-    if (!targetRect || step.position === "center") return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
-    const gap = 16;
-    if (step.position === "right") return { top: Math.max(8, targetRect.top), left: Math.min(targetRect.left + targetRect.width + gap, window.innerWidth - 320) };
-    if (step.position === "bottom") return { top: Math.min(targetRect.top + targetRect.height + gap, window.innerHeight - 200), left: Math.max(8, targetRect.left - 20) };
-    if (step.position === "top") return { bottom: window.innerHeight - targetRect.top + gap, left: Math.max(8, targetRect.left - 20) };
-    return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
-  })();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      // Tenta posicionar à direita
+      if (step.position === "right" && r.left + r.width + GAP + POPUP_W < vw) {
+        setPopupPos({
+          top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)),
+          left: r.left + r.width + GAP,
+        });
+        return;
+      }
+      // Tenta posicionar abaixo
+      if ((step.position === "bottom" || step.position === "right") && r.top + r.height + GAP + POPUP_H < vh) {
+        setPopupPos({
+          top: r.top + r.height + GAP,
+          left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)),
+        });
+        return;
+      }
+      // Tenta posicionar acima
+      if (r.top - GAP - POPUP_H > 0) {
+        setPopupPos({
+          top: r.top - POPUP_H - GAP,
+          left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)),
+        });
+        return;
+      }
+      // Tenta posicionar à esquerda
+      if (r.left - GAP - POPUP_W > 0) {
+        setPopupPos({
+          top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)),
+          left: r.left - POPUP_W - GAP,
+        });
+        return;
+      }
+      // Fallback: centro da tela
+      setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+    }, 350);
+  }, [step]);
 
   return (
     <div className="fixed inset-0 z-[60]" style={{ pointerEvents: "none" }}>
+      {/* Overlay com buraco no elemento */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: "all" }} onClick={e => e.stopPropagation()}>
         <defs>
           <mask id="spotlight-mask">
@@ -639,34 +682,47 @@ function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, i
             )}
           </mask>
         </defs>
-        <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#spotlight-mask)" />
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.6)" mask="url(#spotlight-mask)" />
         {targetRect && (
-          <rect x={targetRect.left - 6} y={targetRect.top - 6} width={targetRect.width + 12} height={targetRect.height + 12} rx="8" fill="none" stroke="#78DE1F" strokeWidth="2" strokeDasharray="6 3" />
+          <rect x={targetRect.left - 6} y={targetRect.top - 6} width={targetRect.width + 12} height={targetRect.height + 12} rx="8" fill="none" stroke="#78DE1F" strokeWidth="2.5" strokeDasharray="6 3">
+            <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1s" repeatCount="indefinite" />
+          </rect>
         )}
       </svg>
-      <div className="absolute bg-white rounded-2xl p-5 shadow-2xl" style={{ ...popupStyle, width: 300, maxWidth: "calc(100vw - 32px)", zIndex: 70, pointerEvents: "all" }}>
-        <div className="flex items-center justify-between mb-2">
+
+      {/* Popup */}
+      <div
+        className="absolute bg-white rounded-2xl shadow-2xl"
+        style={{ ...popupPos, width: POPUP_W, zIndex: 70, pointerEvents: "all", padding: "18px 20px" }}
+      >
+        <div className="flex items-center justify-between mb-3">
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#EAF9DC", color: "#014A1F" }}>
             {stepIndex + 1} / {total}
           </span>
-          <button onClick={onDone} className="text-[11px]" style={{ color: "#5B6B60" }}>Pular</button>
+          <button onClick={onDone} className="text-[10px]" style={{ color: "#9dbfaa" }}>Pular tour</button>
         </div>
-        <h3 className="text-sm font-bold mb-1.5" style={{ color: "#014A1F" }}>{step.title}</h3>
+        <h3 className="text-sm font-bold mb-2" style={{ color: "#014A1F" }}>{step.title}</h3>
         <p className="text-xs leading-relaxed mb-4" style={{ color: "#5B6B60" }}>{step.desc}</p>
         {step.autoAdvance && (
-          <p className="text-[10px] italic mb-3" style={{ color: "#5B6B60" }}>↑ Clique no elemento destacado para avançar</p>
+          <p className="text-[10px] mb-3 flex items-center gap-1" style={{ color: "#78DE1F" }}>
+            <span>●</span> Clique no elemento destacado para avançar automaticamente
+          </p>
         )}
         <div className="flex gap-2">
           {stepIndex > 0 && (
-            <button onClick={onPrev} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>‹ Voltar</button>
+            <button onClick={onPrev} className="px-3 py-2 rounded-lg border text-xs" style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>‹</button>
           )}
-          <button onClick={isLast ? onDone : onNext} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "#01652A" }}>
+          <button
+            onClick={isLast ? onDone : onNext}
+            className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
+            style={{ background: "#01652A" }}
+          >
             {isLast ? "Entendi como usar! ✓" : step.autoAdvance ? "Pular passo →" : "Próximo →"}
           </button>
         </div>
-        <div className="flex justify-center gap-1 mt-3">
+        <div className="flex justify-center gap-1.5 mt-3">
           {Array.from({ length: total }).map((_, i) => (
-            <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i === stepIndex ? "#01652A" : "#E1E8E2" }} />
+            <div key={i} className="rounded-full transition-all" style={{ width: i === stepIndex ? 16 : 6, height: 6, background: i === stepIndex ? "#01652A" : "#E1E8E2" }} />
           ))}
         </div>
       </div>
