@@ -330,7 +330,7 @@ const ONBOARDING_STEPS = [
   },
 ];
 
-const GlobalStyle = ({ dark, T }) => (
+const GlobalStyle = () => (
   <style>{`
     .ls-input { transition: border-color .15s ease, box-shadow .15s ease; }
     .ls-input:focus { border-color: ${GREEN} !important; box-shadow: 0 0 0 3px rgba(1,101,42,0.12); outline: none; }
@@ -368,8 +368,8 @@ const GlobalStyle = ({ dark, T }) => (
 function Chip({ children, onRemove, tone = "default" }) {
   const style =
     tone === "accent"
-      ? { background: T.HIGHLIGHT, borderColor: LIME, color: GREEN_DARK }
-      : { background: T.CARD, borderColor: T.BORDER, color: T.TEXT };
+      ? { background: LIME_SOFT, borderColor: LIME, color: GREEN_DARK }
+      : { background: "#FFFFFF", borderColor: "#E1E8E2", color: "#16241A" };
   return (
     <span style={style} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium">
       {children}
@@ -389,7 +389,7 @@ function ToggleTag({ active, children, onClick }) {
       style={
         active
           ? { background: GREEN, borderColor: GREEN, color: "#FFFFFF" }
-          : { background: T.CARD, borderColor: T.BORDER, color: T.MUTED }
+          : { background: "#FFFFFF", borderColor: "#E1E8E2", color: "#5B6B60" }
       }
       className="ls-toggle px-3 py-1.5 rounded-full border text-xs font-medium"
     >
@@ -401,7 +401,7 @@ function ToggleTag({ active, children, onClick }) {
 function Field({ label, children }) {
   return (
     <div>
-      <label className="text-xs font-semibold tracking-wide block mb-1.5" style={{ color: T.MUTED }}>
+      <label className="text-xs font-semibold tracking-wide block mb-1.5" style={{ color: MUTED }}>
         {label}
       </label>
       {children}
@@ -448,7 +448,7 @@ function ScoreRing({ label, value }) {
           {v != null ? v : "–"}
         </div>
       </div>
-      <span className="text-[11px] leading-tight" style={{ color: T.MUTED, maxWidth: 54 }}>
+      <span className="text-[11px] leading-tight" style={{ color: MUTED, maxWidth: 54 }}>
         {label}
       </span>
     </div>
@@ -1393,7 +1393,7 @@ Avalie "seoScore" e "toneScore".`;
   };
 
   const inputStyle = { background: T.INPUT, color: T.TEXT, borderColor: T.BORDER };
-  const inputClass = `ls-input w-full text-sm border rounded-lg px-3 py-2.5`;
+  const inputClass = "ls-input w-full text-sm border rounded-lg px-3 py-2.5";
 
   // ---------- SENHA ----------
   if (!unlocked) {
@@ -1406,7 +1406,7 @@ Avalie "seoScore" e "toneScore".`;
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <GlobalStyle dark={dark} T={T} />
+        <GlobalStyle />
         <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
           <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">
             Social Studio
@@ -1467,7 +1467,7 @@ Avalie "seoScore" e "toneScore".`;
         className="min-h-screen flex items-center justify-center px-6 notranslate"
         style={{ background: `linear-gradient(160deg, ${GREEN} 0%, ${GREEN_DEEPER} 100%)`, fontFamily: "system-ui, sans-serif" }}
       >
-        <GlobalStyle dark={dark} T={T} />
+        <GlobalStyle />
         <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
           <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">Social Studio</h1>
           <p className="text-sm text-center mb-5" style={{ color: T.MUTED }}>Acesso restrito ao time de conteúdo</p>
@@ -1577,7 +1577,7 @@ Avalie "seoScore" e "toneScore".`;
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <GlobalStyle dark={dark} T={T} />
+        <GlobalStyle />
         <div
           className="absolute inset-0 opacity-[0.05] pointer-events-none"
           style={{
@@ -1633,7 +1633,7 @@ Avalie "seoScore" e "toneScore".`;
   // ---------- WORKSPACE ----------
   return (
     <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: T.BG, color: T.TEXT, fontFamily: "system-ui, sans-serif", transition: "background 0.2s, color 0.2s" }}>
-      <GlobalStyle dark={dark} T={T} />
+      <GlobalStyle />
       {/* Overlay mobile quando menu aberto */}
       {mobileMenuOpen && (
         <div
@@ -2008,7 +2008,7 @@ data-onboard="library-btn"
                   </Field>
 
                   <div>
-                    <label className="text-xs font-semibold tracking-wide block mb-1.5" style={{ color: T.MUTED }}>
+                    <label className="text-xs font-semibold tracking-wide block mb-1.5" style={{ color: MUTED }}>
                       Vocabulário/expressões preferidas
                     </label>
                     {(formPreset.vocabulario || []).length > 0 && (
@@ -3020,7 +3020,7 @@ data-onboard="generate-btn"
                           <textarea
                             value={r.legenda}
                             onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
-                            className={`${inputClass} min-h-[100px]`} style={inputStyle}
+                            className={`${inputClass} min-h-[100px]`} style={{ background: T.INPUT, color: T.TEXT, borderColor: T.BORDER }}
                           />
                           )}
                           {p === "youtube" && (
