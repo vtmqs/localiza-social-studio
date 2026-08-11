@@ -43,6 +43,7 @@ import {
   Send,
   HelpCircle,
   Link as LinkIcon,
+  EyeOff,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -789,6 +790,7 @@ export default function App() {
   const [showRegister, setShowRegister] = useState(false);
   const [authMode, setAuthMode] = useState("login"); // "login" | "register"
   const [loginPwd, setLoginPwd] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regName, setRegName] = useState("");
@@ -2088,7 +2090,7 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
               <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
               <input
                 id="login-pwd-input"
-                type="password"
+                type={showPwd ? "text" : "password"}
                 value={loginPwd}
                 onChange={(e) => { setLoginPwd(e.target.value); setLoginError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
@@ -2127,7 +2129,7 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
               />
               <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
               <input
-                type="password"
+                type={showPwd ? "text" : "password"}
                 value={regPwd}
                 onChange={(e) => { setRegPwd(e.target.value); setRegError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && handleRegister()}
