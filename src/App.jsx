@@ -1325,20 +1325,25 @@ Retorne este JSON exato:
   const addKeyword = async () => {
     const kw = draft.keywordInput.trim();
     if (!kw) return;
-    // Adiciona imediatamente com quality "medium" enquanto avalia
+    // Verifica se já existe
+    const exists = draft.keywords.some(k => (typeof k === "object" ? k.kw : k).toLowerCase() === kw.toLowerCase());
+    if (exists) { setDraft(d => ({ ...d, keywordInput: "" })); return; }
+    // Adiciona imediatamente com "medium" enquanto avalia
     setDraft((d) => ({
       ...d,
       keywords: [...d.keywords, { kw, quality: "medium" }],
       keywordInput: "",
     }));
-    // Avalia a KW via Gemini em background
+    // Avalia via Gemini em background
     try {
+      const buLabel = BUS.find(b => b.id === activeBU)?.label || "Localiza";
       const { text } = await callAI({
-        system: `Você avalia a qualidade semântica e SEO de palavras-chave para redes sociais da Localiza (aluguel de carros). Retorne SOMENTE um JSON no formato: {"quality": "good"|"medium"|"low"}. Critérios: good = relevante para aluguel de carros/viagens/mobilidade com bom volume de busca estimado; medium = relacionado mas genérico ou competitivo demais; low = sem relação com o contexto ou volume muito baixo.`,
-        prompt: `Avalie a keyword: "${kw}"`,
+        system: `Você avalia a qualidade semântica e de SEO de palavras-chave para posts de redes sociais da ${buLabel} (empresa de mobilidade e aluguel de carros). Retorne SOMENTE JSON: {"quality": "good"|"medium"|"low"}. Critérios — good: diretamente relevante para mobilidade/aluguel/viagem, boa intenção de busca; medium: relacionado mas genérico ou amplo demais; low: sem relação com o contexto ou irrelevante para SEO de redes sociais.`,
+        prompt: `Avalie a keyword para posts de ${buLabel}: "${kw}"`,
         useSearch: false,
       });
-      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
       const quality = ["good", "medium", "low"].includes(parsed.quality) ? parsed.quality : "medium";
       setDraft((d) => ({
         ...d,
@@ -1352,7 +1357,10 @@ Retorne este JSON exato:
   };
 
   const removeKeyword = (kw) => {
-    setDraft((d) => ({ ...d, keywords: d.keywords.filter((k) => k !== kw) }));
+    setDraft((d) => ({
+      ...d,
+      keywords: d.keywords.filter((k) => (typeof k === "object" ? k.kw : k) !== kw),
+    }));
   };
 
   const toggleKeywordSelected = (kw) => {
