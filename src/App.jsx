@@ -385,145 +385,97 @@ const GlobalStyle = () => (
     .ls-mode-tab { transition: background .15s ease, color .15s ease; }
 
     /* ============ DARK MODE ============ */
-    /* Paleta: fundo slate-esverdeado profundo, texto quase-branco suave */
-    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #3d5247; --dk-text: #e8f5ec; --dk-muted: #a8c8b2; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #86efac; }
-
-    /* Fundo geral */
-    html.dark body,
-    html.dark [style*="background: rgb(246"] { background: var(--dk-bg) !important; }
-
-    /* Textos */
-    html.dark, html.dark p, html.dark span, html.dark div, html.dark h1, html.dark h2, html.dark h3, html.dark label, html.dark button, html.dark a { color: var(--dk-text); }
-    html.dark [style*="color: #16241A"], html.dark [style*="color: #014A1F"], html.dark [style*="color: #01652A"], html.dark [style*="color: #013318"] { color: var(--dk-text) !important; }
-    html.dark label, html.dark .flex.items-center.gap-2 span { color: var(--dk-text) !important; }
-
-    /* Cards e painéis brancos */
-    html.dark .bg-white,
-    html.dark [style*="background: rgb(255, 255, 255)"],
-    html.dark [style*="background: #FFFFFF"],
-    html.dark [style*='background: "#FFFFFF"'] { background: var(--dk-card) !important; }
-
-    /* Inputs e textareas */
-    html.dark input, html.dark textarea, html.dark select {
-      background: var(--dk-input) !important;
-      color: var(--dk-text) !important;
-      border-color: var(--dk-border) !important;
+    /* Paleta: verde profundo confortável, textos claros */
+    :root {
+      --dk-bg:      #18221e;  /* fundo geral */
+      --dk-surface: #1f2d28;  /* superfície leve */
+      --dk-card:    #243029;  /* cards e painéis */
+      --dk-input:   #1c2924;  /* inputs */
+      --dk-border:  #3a4f44;  /* bordas */
+      --dk-text:    #e4f0e8;  /* texto principal */
+      --dk-muted:   #9dbfaa;  /* texto secundário */
+      --dk-green:   #86efac;  /* verde claro (acentos) */
+      --dk-lime:    #a3e635;  /* lime adaptado */
     }
-    html.dark input::placeholder, html.dark textarea::placeholder { color: var(--dk-muted) !important; }
 
-    /* Bordas */
-    html.dark [style*="borderColor: #E1E8E2"],
-    html.dark [class*="border-"] { border-color: var(--dk-border); }
+    /* Fundo geral e superfícies */
+    html.dark body { background: var(--dk-bg) !important; color: var(--dk-text) !important; }
+    html.dark * { border-color: var(--dk-border); }
 
-    /* Header sticky */
-    html.dark .sticky.bg-white,
-    html.dark .sticky { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
+    /* Todo texto escuro → claro */
+    html.dark *:not(svg):not(path):not(circle):not(rect) {
+      color: var(--dk-text);
+    }
 
-    /* Dropdown notificações */
-    html.dark [class*="absolute"][class*="bg-white"],
-    html.dark [class*="absolute"][class*="shadow"] { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
-
-    /* Cor de texto secundário */
-    html.dark [style*="color: #5B6B60"],
-    html.dark [style*="color: rgb(91"],
-    html.dark [style*="color: #8B"],
-    html.dark [style*="color: #7"] { color: var(--dk-muted) !important; }
-
-    /* Preset items hover */
-    html.dark .ls-preset-item:hover { background: var(--dk-surface) !important; }
-    html.dark .ls-preset-item.active { background: rgba(120,222,31,0.12) !important; border-color: #78DE1F !important; }
-
-    /* Hover em botões ghost */
-    html.dark .ls-btn-ghost:hover { border-color: var(--dk-green) !important; color: var(--dk-green) !important; }
-
-    /* Superfícies levemente elevadas */
-    html.dark [style*="background: #F6F9F6"],
-    html.dark [style*="background: #FAFAFA"],
-    html.dark [style*="background: #F3F4F6"],
-    html.dark [style*="background: #EAF9DC"] { background: var(--dk-surface) !important; }
-
-    /* Nav item ativo no dark */
-    html.dark .ls-nav-item.active { background: rgba(255,255,255,0.10) !important; color: #fff !important; }
-
-    /* Modais */
-    html.dark [class*="rounded-2xl"][class*="shadow-2xl"] { background: var(--dk-card) !important; }
-
-    /* Scrollbar dark */
-    html.dark * { scrollbar-color: var(--dk-border) transparent; }
-
-    /* Checkboxes verdes e labels legíveis */
-    .ls-check-label { color: #16241A; }
-    .ls-check-icon { color: #5B6B60; }
-    html.dark .ls-check-label { color: var(--dk-text) !important; }
-    html.dark .ls-check-icon { color: var(--dk-muted) !important; }
-    input[type="checkbox"] { accent-color: #01652A; width: 15px; height: 15px; cursor: pointer; }
-    html.dark input[type="checkbox"] { accent-color: #78DE1F; }
-
-    /* Verde escuro → verde claro no dark (regra abrangente) */
-    html.dark [style*="color: #01"],
-    html.dark [style*="color: #00"] { color: var(--dk-green) !important; }
-    html.dark [style*="color: GREEN"],
-    html.dark [style*="color: rgb(1,"],
-    html.dark [style*="color: rgb(0,"] { color: var(--dk-green) !important; }
-
-    /* Correções de texto escuro no dark mode */
-    /* Verde escuro → texto claro */
+    /* Exceções: textos de acento verde */
     html.dark [style*="color: #01652A"],
     html.dark [style*="color: #014A1F"],
     html.dark [style*="color: #013318"],
-    html.dark [style*="color: #16241A"] { color: var(--dk-text) !important; }
+    html.dark [style*="color: GREEN"] { color: var(--dk-green) !important; }
 
-    /* Marrom/alaranjado escuro (erros, alertas) → manter mas mais claro */
-    html.dark [style*="color: \"#8A3A1F\""],
-    html.dark [style*="color: \"#5B3A2F\""] { color: #f8a88a !important; }
-    html.dark [style*="color: \"#8A6A1F\""] { color: #f5d08a !important; }
+    /* Texto secundário/mutado */
+    html.dark [style*="color: #5B6B60"],
+    html.dark [style*="color: #8B"],
+    html.dark .ls-check-label { color: var(--dk-text) !important; }
+    html.dark [style*="color: MUTED"] { color: var(--dk-muted) !important; }
 
-    /* Backgrounds de alerta/erro → tom dark */
-    html.dark [style*="background: \"#FBEDE7\""] { background: rgba(200,80,60,0.15) !important; }
-    html.dark [style*="background: \"#FEF3C7\""] { background: rgba(180,140,0,0.15) !important; }
-    html.dark [style*="background: \"#FEE2E2\""] { background: rgba(200,50,50,0.15) !important; }
+    /* Alertas e erros */
+    html.dark [style*="color: #8A3A1F"],
+    html.dark [style*="color: #5B3A2F"] { color: #f8a88a !important; }
+    html.dark [style*="color: #8A6A1F"] { color: #f5d08a !important; }
+    html.dark [style*="background"][style*="#FBEDE7"] { background: rgba(200,80,60,0.18) !important; }
 
-    /* GREEN_DARK em texto sobre fundo claro → verde lima no dark */
-    html.dark h1, html.dark h2, html.dark h3 { color: var(--dk-text) !important; }
-    html.dark [style*="color: GREEN_DARK"] { color: #78DE1F !important; }
+    /* Backgrounds: branco → card dark */
+    html.dark [style*="background: #FFFFFF"],
+    html.dark [style*='background: "#FFFFFF"'],
+    html.dark [style*="background: rgb(255, 255, 255)"],
+    html.dark .bg-white { background: var(--dk-card) !important; }
 
-    /* Botão primário (LIME) — mantém o verde lima, ajusta texto pra legível */
-    html.dark .ls-btn-primary { box-shadow: 0 4px 14px rgba(120,222,31,0.25); }
+    /* Superfícies claras */
+    html.dark [style*="background: #F6F9F6"],
+    html.dark [style*="background: #FAFAFA"],
+    html.dark [style*="background: #F3F4F6"],
+    html.dark [style*="background: #f9f9f9"],
+    html.dark [style*="background: #f3f6f8"] { background: var(--dk-surface) !important; }
 
-    /* Inputs, selects e textareas */
-    html.dark input:not([type="checkbox"]),
+    /* LIME_SOFT e destaques verdes */
+    html.dark [style*="background: #EAF9DC"],
+    html.dark [style*="background: LIME_SOFT"] { background: rgba(163,230,53,0.12) !important; }
+
+    /* Inputs, textareas, selects */
+    html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="date"]),
     html.dark textarea,
     html.dark select {
       background: var(--dk-input) !important;
       color: var(--dk-text) !important;
       border-color: var(--dk-border) !important;
     }
+    html.dark input::placeholder,
+    html.dark textarea::placeholder { color: var(--dk-muted) !important; opacity: 1; }
 
-    /* Chips de qualidade de KW — legíveis no dark */
-    html.dark [style*="background: \"#DCFCE7\""] { background: rgba(74,222,128,0.15) !important; color: #6ee7a0 !important; }
-    html.dark [style*="background: \"#FEF3C7\""] { background: rgba(250,204,21,0.15) !important; color: #fde68a !important; }
-    html.dark [style*="background: \"#FEE2E2\""] { background: rgba(248,113,113,0.15) !important; color: #fca5a5 !important; }
+    /* Header sticky */
+    html.dark .sticky { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
 
-    /* Badges de visibilidade */
-    html.dark [style*="background: \"#EAF9DC\""] { background: rgba(120,222,31,0.15) !important; }
-    html.dark [style*="background: \"#F0F4F3\""],
-    html.dark [style*="background: \"#F6F9F6\""] { background: var(--dk-surface) !important; }
+    /* Modais e dropdowns */
+    html.dark [class*="shadow-2xl"],
+    html.dark [class*="shadow-xl"] { background: var(--dk-card) !important; }
 
-    /* Preview de legenda no dark */
-    html.dark [style*="background: linear-gradient(135deg,#f9f9f9"] { background: var(--dk-card) !important; color: var(--dk-text) !important; }
-    html.dark [style*="background: #f3f6f8"] { background: var(--dk-surface) !important; color: var(--dk-text) !important; }
+    /* Nav items */
+    html.dark .ls-nav-item.active { background: rgba(255,255,255,0.10) !important; color: #fff !important; }
+    html.dark .ls-nav-item.active::before { background: var(--dk-lime) !important; }
+    html.dark .ls-preset-item:hover { background: var(--dk-surface) !important; }
+    html.dark .ls-preset-item.active { background: rgba(163,230,53,0.10) !important; border-color: var(--dk-lime) !important; }
+    html.dark .ls-btn-ghost:hover { border-color: var(--dk-green) !important; color: var(--dk-green) !important; }
 
-    /* Qualquer span/p com cor explicitamente escura */
-    html.dark span[style*="color: #"],
-    html.dark p[style*="color: #"] { color: var(--dk-text); }
-    html.dark span[style*="color: MUTED"],
-    html.dark p[style*="color: MUTED"] { color: var(--dk-muted) !important; }
+    /* Chips de qualidade KW */
+    html.dark [style*="#DCFCE7"] { background: rgba(74,222,128,0.15) !important; color: #86efac !important; }
+    html.dark [style*="#FEF3C7"] { background: rgba(250,204,21,0.15) !important; color: #fde68a !important; }
+    html.dark [style*="#FEE2E2"] { background: rgba(248,113,113,0.15) !important; color: #fca5a5 !important; }
 
-    /* Transição suave ao trocar tema */
-    * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
-    /* Exceto imagens e SVGs */
-    img, svg * { transition: none !important; }
-  `}</style>
+    /* Scrollbar */
+    html.dark * { scrollbar-color: var(--dk-border) transparent; }
+
+      `}</style>
 );
 
 function Chip({ children, onRemove, tone = "default" }) {
@@ -716,11 +668,21 @@ export default function App() {
       return params.get("bu") || null;
     } catch { return null; }
   });
-  const [page, setPage] = useState("compose");
+  const [page, setPage] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get("page");
+      return ["compose","style","presets-list","library","admin"].includes(p) ? p : "compose";
+    } catch { return "compose"; }
+  });
 
   // Auto-avança onboarding quando a página muda pro target esperado
   const setPageWithOnboard = (newPage) => {
     setPage(newPage);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("page", newPage);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    } catch {}
     if (onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length) {
       const step = ONBOARDING_STEPS[onboardStep];
       if (step.autoAdvance === `page:${newPage}`) {
@@ -882,8 +844,7 @@ export default function App() {
     setResults(null);
     setError("");
     setEditingId(null);
-    try { window.history.replaceState(null, "", `?bu=${id}`); } catch {}
-    // Ativa onboarding na primeira vez
+    try { window.history.replaceState(null, "", `?bu=${id}&page=compose`); } catch {}
     if (!localStorage.getItem("onboard-done")) setOnboardStep(0);
   };
 
@@ -893,7 +854,11 @@ export default function App() {
     setResults(null);
     setError("");
     setEditingId(null);
-    try { window.history.replaceState(null, "", `?bu=${id}`); } catch {}
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("bu", id);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    } catch {}
   };
 
   const startNewPreset = () => {
