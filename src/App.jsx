@@ -1707,7 +1707,7 @@ ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
 Tom de voz específico deste post: ${draft.toneTags.length ? draft.toneTags.join(", ") : "seguir o tom geral do estilo selecionado"}
-Palavras-chave/tópicos de referência: ${ctx.selectedKeywords.length ? ctx.selectedKeywords.join(", ") : "nenhuma definida"}
+Palavras-chave para integrar organicamente (não copie literal — adapte ao contexto da frase): ${ctx.selectedKeywords.length ? ctx.selectedKeywords.join(", ") : "nenhuma definida"}
 Conteúdos relacionados selecionados: ${ctx.relatedText}
 Plataformas solicitadas: ${draft.platforms.join(", ")}
 
@@ -1777,7 +1777,7 @@ ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
 Tom de voz específico: ${draft.toneTags.length ? draft.toneTags.join(", ") : "seguir o tom geral do estilo selecionado"}
-Palavras-chave a priorizar: ${ctx.selectedKeywords.length ? ctx.selectedKeywords.join(", ") : "nenhuma definida"}
+Palavras-chave para integrar organicamente (adapte ao contexto — não insira de forma robótica): ${ctx.selectedKeywords.length ? ctx.selectedKeywords.join(", ") : "nenhuma definida"}
 Conteúdos relacionados selecionados: ${ctx.relatedText}
 Plataformas solicitadas: ${draft.platforms.join(", ")}
 
@@ -1796,87 +1796,92 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
     }
   };
 
-  const scoreCaption = async (platformId, legenda, hashtags, isLive = false) => {
+  // Score determinístico — algoritmo local, sem Gemini, sempre consistente
+  const scoreCaption = (platformId, legenda, hashtags) => {
     const p = activeGenPreset || BLANK_PRESET;
     const selectedKeywords = (draft.keywords || [])
       .filter(k => draft.keywordSelected?.[(typeof k === "object" ? k.kw : k).toLowerCase()] !== false)
-      .map(k => typeof k === "object" ? k.kw : k);
+      .map(k => (typeof k === "object" ? k.kw : k).toLowerCase());
 
-    const system = `Você é um avaliador rigoroso de qualidade de legendas para redes sociais. 
-Use SEMPRE esta rubrica fixa — não varie entre chamadas para a mesma legenda:
+    const text = (legenda || "").toLowerCase();
+    const words = text.split(/\s+/);
+    const first15 = words.slice(0, 15).join(" ");
 
-SEO (0-100):
-- Keyword principal nas primeiras 15 palavras: +25pts
-- Pelo menos 2 keywords secundárias no corpo: +20pts  
-- Hashtags relevantes e em quantidade adequada pra rede: +20pts
-- Comprimento adequado pra plataforma (Instagram 125-150 chars antes do "mais", LinkedIn 150-210, TikTok até 100, YouTube até 500): +20pts
-- Call-to-action presente: +15pts
+    // --- SEO ---
+    let seo = 0;
+    // Keyword nas primeiras 15 palavras
+    const kwInOpening = selectedKeywords.some(kw => first15.includes(kw));
+    seo += kwInOpening ? 25 : 0;
+    // Keywords no corpo
+    const kwInBody = selectedKeywords.filter(kw => text.includes(kw)).length;
+    seo += Math.min(kwInBody, 2) * 10;
+    // Hashtags
+    const hLen = (hashtags || []).length;
+    const idealHashtags = { instagram: [3, 7], linkedin: [1, 3], tiktok: [2, 5], youtube: [0, 3] };
+    const [hMin, hMax] = idealHashtags[platformId] || [1, 5];
+    seo += (hLen >= hMin && hLen <= hMax) ? 20 : hLen > 0 ? 10 : 0;
+    // Comprimento adequado por plataforma
+    const charLen = legenda?.length || 0;
+    const idealLen = { instagram: [80, 200], linkedin: [100, 300], tiktok: [50, 150], youtube: [100, 500] };
+    const [lMin, lMax] = idealLen[platformId] || [80, 300];
+    seo += (charLen >= lMin && charLen <= lMax) ? 20 : charLen > 30 ? 10 : 0;
+    // CTA presente
+    const ctaWords = ["saiba mais", "confira", "acesse", "reserve", "clique", "link", "veja", "descubra", "agende", "baixe"];
+    seo += ctaWords.some(w => text.includes(w)) ? 15 : 0;
+    seo = Math.min(100, seo);
 
-TOM (0-100):
-- Abertura original, não clichê de press release: +25pts
-- Tom alinhado ao eixo editorial da marca (viagem, mobilidade, liberdade): +25pts
-- Vocabulário da marca presente (se definido): +20pts
-- Sem construções genéricas de IA ("mergulhe em", "descubra o poder de", "eleve sua experiência"): +15pts
-- Fio condutor e narrativa coerente do início ao fim: +15pts
+    // --- TOM ---
+    let tom = 100;
+    // Penalizar clichês
+    const cliches = ["mergulhe em", "descubra o poder", "eleve sua", "experiência única", "momentos especiais", "não é só", "muito mais do que", "transforme sua", "faça parte", "junte-se a nós", "a vida é feita"];
+    const clicheCount = cliches.filter(w => text.includes(w)).length;
+    tom -= clicheCount * 15;
+    // Penalizar abertura genérica (começa com "o", "a", "os", "as" + adjetivo)
+    const genericStart = /^(o|a|os|as)\s+(incrível|fantástico|melhor|perfeito|ideal|especial|único|exclusivo)/i;
+    if (genericStart.test(legenda || "")) tom -= 10;
+    // Vocabulário da marca presente
+    const vocab = (p.vocabulario || []).map(v => v.toLowerCase());
+    const vocabMatch = vocab.filter(v => text.includes(v)).length;
+    tom += Math.min(vocabMatch * 5, 15);
+    // Penalizar texto muito curto (sem narrativa)
+    if (charLen < 50) tom -= 20;
+    tom = Math.max(0, Math.min(100, tom));
 
-ORIGINALIDADE (0-100):
-- Abertura com imagem concreta ou situação específica (não abstrata): +35pts
-- Estrutura e ângulo narrativo diferente do óbvio: +35pts
-- Ausência de frases-clichê ("momentos especiais", "experiência única", "a vida é feita de"): +30pts
+    // --- ORIGINALIDADE ---
+    let orig = 100;
+    const genericPhrases = ["experiência única", "momentos especiais", "a vida é feita de", "memórias", "inesquecível", "não perca", "aproveite", "especial para você", "exclusivo para"];
+    orig -= genericPhrases.filter(w => text.includes(w)).length * 12;
+    // Abertura abstrata penalizada
+    const abstractStart = /^(a|o|os|as|um|uma)?\s*(vida|amor|momento|sonho|felicidade|liberdade)/i;
+    if (abstractStart.test(legenda || "")) orig -= 20;
+    orig = Math.max(0, Math.min(100, orig));
 
-Retorne SOMENTE JSON: {"seoScore": N, "toneScore": N, "originalScore": N}`;
-
-    const prompt = `Avalie esta legenda para ${platformId}:
-
-"${legenda}"
-
-Hashtags: ${(hashtags || []).join(", ") || "nenhuma"}
-Keywords alvo: ${selectedKeywords.join(", ") || "não definidas"}
-Regras da marca: ${p.regras?.slice(0, 300) || "não definidas"}
-Tom de voz: ${p.tomGeral || "não definido"}
-Eixo editorial: ${p.eixo || "não definido"}`;
-
-    try {
-      const { text } = await callAI({ system, prompt, useSearch: false });
-      const scores = extractJSON(text);
-      if (scores && typeof scores.seoScore === "number") {
-        setResults(prev => ({
-          ...prev,
-          [platformId]: {
-            ...prev[platformId],
-            seoScore: Math.round(scores.seoScore),
-            toneScore: Math.round(scores.toneScore),
-            originalScore: Math.round(scores.originalScore || 0),
-          },
-        }));
-        // Atualiza o scoreModal se estiver aberto pra essa plataforma
-        setScoreModal(prev => prev && prev.platform === platformId
-          ? { ...prev, seoScore: scores.seoScore, toneScore: scores.toneScore, originalScore: scores.originalScore || 0 }
-          : prev
-        );
-      }
-    } catch {}
+    const scores = { seoScore: seo, toneScore: Math.round(tom), originalScore: Math.round(orig) };
+    setResults(prev => prev && prev[platformId] ? ({
+      ...prev,
+      [platformId]: { ...prev[platformId], ...scores },
+    }) : prev);
+    setScoreModal(prev => prev && prev.platform === platformId ? { ...prev, ...scores } : prev);
+    return scores;
   };
 
-  const reanalyzeCaption = async (platformId) => {
+  const reanalyzeCaption = (platformId) => {
     const r = results?.[platformId];
     if (!r) return;
     setReanalyzing(prev => ({ ...prev, [platformId]: true }));
-    await scoreCaption(platformId, r.legenda, r.hashtags, false);
-    setReanalyzing(prev => ({ ...prev, [platformId]: false }));
+    scoreCaption(platformId, r.legenda, r.hashtags);
+    setTimeout(() => setReanalyzing(prev => ({ ...prev, [platformId]: false })), 300);
   };
 
   // Avalia em tempo real com debounce quando a legenda é editada
   const onLegendaChange = (platformId, newLegenda) => {
-    setResults(prev => ({ ...prev, [platformId]: { ...prev[platformId], legenda: newLegenda } }));
-    // Cancela o debounce anterior
-    if (debounceRefs.current[platformId]) clearTimeout(debounceRefs.current[platformId]);
-    setLiveScoring(prev => ({ ...prev, [platformId]: true }));
-    debounceRefs.current[platformId] = setTimeout(async () => {
-      const r = results?.[platformId];
-      await scoreCaption(platformId, newLegenda, r?.hashtags, true);
-      setLiveScoring(prev => ({ ...prev, [platformId]: false }));
-    }, 1500);
+    setResults(prev => {
+      const updated = { ...prev, [platformId]: { ...prev[platformId], legenda: newLegenda } };
+      // Score é determinístico — calcula direto, sem debounce nem Gemini
+      const r = updated[platformId];
+      const scores = scoreCaption(platformId, newLegenda, r?.hashtags);
+      return { ...updated, [platformId]: { ...updated[platformId], ...scores } };
+    });
   };
 
   const [publishDateModal, setPublishDateModal] = useState(null);
@@ -3752,12 +3757,7 @@ data-onboard="generate-btn"
                               onChange={(e) => onLegendaChange(p, e.target.value)}
                               className={`${inputClass} min-h-[100px]`} style={{ background: "#FFFFFF", color: TEXT, borderColor: BORDER }}
                             />
-                            {liveScoring[p] && (
-                              <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
-                                <Loader2 size={9} className="animate-spin" />
-                                avaliando...
-                              </div>
-                            )}
+
                           </div>
                           )}
                           {p === "youtube" && (
