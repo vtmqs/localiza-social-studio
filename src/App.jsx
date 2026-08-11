@@ -960,6 +960,8 @@ export default function App() {
   const [benchLoading, setBenchLoading] = useState(false);
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [reanalyzing, setReanalyzing] = useState({});
+  const [liveScoring, setLiveScoring] = useState({}); // { platform: true } quando avaliando em tempo real
+  const debounceRefs = React.useRef({});
   const [savingCaption, setSavingCaption] = useState({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [savedCaption, setSavedCaption] = useState({});
@@ -1786,36 +1788,87 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
     }
   };
 
+  const scoreCaption = async (platformId, legenda, hashtags, isLive = false) => {
+    const p = activeGenPreset || BLANK_PRESET;
+    const selectedKeywords = (draft.keywords || [])
+      .filter(k => draft.keywordSelected?.[(typeof k === "object" ? k.kw : k).toLowerCase()] !== false)
+      .map(k => typeof k === "object" ? k.kw : k);
+
+    const system = `Você é um avaliador rigoroso de qualidade de legendas para redes sociais. 
+Use SEMPRE esta rubrica fixa — não varie entre chamadas para a mesma legenda:
+
+SEO (0-100):
+- Keyword principal nas primeiras 15 palavras: +25pts
+- Pelo menos 2 keywords secundárias no corpo: +20pts  
+- Hashtags relevantes e em quantidade adequada pra rede: +20pts
+- Comprimento adequado pra plataforma (Instagram 125-150 chars antes do "mais", LinkedIn 150-210, TikTok até 100, YouTube até 500): +20pts
+- Call-to-action presente: +15pts
+
+TOM (0-100):
+- Abertura original, não clichê de press release: +25pts
+- Tom alinhado ao eixo editorial da marca (viagem, mobilidade, liberdade): +25pts
+- Vocabulário da marca presente (se definido): +20pts
+- Sem construções genéricas de IA ("mergulhe em", "descubra o poder de", "eleve sua experiência"): +15pts
+- Fio condutor e narrativa coerente do início ao fim: +15pts
+
+ORIGINALIDADE (0-100):
+- Abertura com imagem concreta ou situação específica (não abstrata): +35pts
+- Estrutura e ângulo narrativo diferente do óbvio: +35pts
+- Ausência de frases-clichê ("momentos especiais", "experiência única", "a vida é feita de"): +30pts
+
+Retorne SOMENTE JSON: {"seoScore": N, "toneScore": N, "originalScore": N}`;
+
+    const prompt = `Avalie esta legenda para ${platformId}:
+
+"${legenda}"
+
+Hashtags: ${(hashtags || []).join(", ") || "nenhuma"}
+Keywords alvo: ${selectedKeywords.join(", ") || "não definidas"}
+Regras da marca: ${p.regras?.slice(0, 300) || "não definidas"}
+Tom de voz: ${p.tomGeral || "não definido"}
+Eixo editorial: ${p.eixo || "não definido"}`;
+
+    try {
+      const { text } = await callAI({ system, prompt, useSearch: false });
+      const scores = extractJSON(text);
+      if (scores && typeof scores.seoScore === "number") {
+        setResults(prev => ({
+          ...prev,
+          [platformId]: {
+            ...prev[platformId],
+            seoScore: Math.round(scores.seoScore),
+            toneScore: Math.round(scores.toneScore),
+            originalScore: Math.round(scores.originalScore || 0),
+          },
+        }));
+        // Atualiza o scoreModal se estiver aberto pra essa plataforma
+        setScoreModal(prev => prev && prev.platform === platformId
+          ? { ...prev, seoScore: scores.seoScore, toneScore: scores.toneScore, originalScore: scores.originalScore || 0 }
+          : prev
+        );
+      }
+    } catch {}
+  };
+
   const reanalyzeCaption = async (platformId) => {
     const r = results?.[platformId];
     if (!r) return;
-    setReanalyzing((prev) => ({ ...prev, [platformId]: true }));
-    setError("");
-    try {
-      const selectedKeywords = draft.keywords.filter((k) => draft.keywordSelected?.[k.toLowerCase()] !== false);
-      const p = activeGenPreset || BLANK_PRESET;
-      const system =
-        'Você é um analista de SEO e brand voice. Responda SOMENTE com um objeto JSON no formato {"seoScore": 0, "toneScore": 0}, sem markdown. Notas de 0 a 100, seja criterioso.';
-      const prompt = `Legenda (rede: ${platformId}): """${r.legenda}"""
-Hashtags: ${(r.hashtags || []).join(", ")}
-Palavras-chave prioritárias: ${selectedKeywords.join(", ") || "nenhuma definida"}
-Regras da marca: ${p.regras || "nenhuma definida"}
-Tom de voz geral: ${p.tomGeral || "não definido"}
-Eixo editorial: ${p.eixo || "não definido"}
-Fio condutor: ${p.fioCondutor || "não definido"}
+    setReanalyzing(prev => ({ ...prev, [platformId]: true }));
+    await scoreCaption(platformId, r.legenda, r.hashtags, false);
+    setReanalyzing(prev => ({ ...prev, [platformId]: false }));
+  };
 
-Avalie "seoScore" e "toneScore".`;
-      const { text } = await callAI({ system, prompt, useSearch: false });
-      const scores = extractJSON(text);
-      setResults((prev) => ({
-        ...prev,
-        [platformId]: { ...prev[platformId], seoScore: scores.seoScore, toneScore: scores.toneScore },
-      }));
-    } catch (e) {
-      setError("Não consegui reanalisar essa legenda agora. Tenta de novo em instantes.");
-    } finally {
-      setReanalyzing((prev) => ({ ...prev, [platformId]: false }));
-    }
+  // Avalia em tempo real com debounce quando a legenda é editada
+  const onLegendaChange = (platformId, newLegenda) => {
+    setResults(prev => ({ ...prev, [platformId]: { ...prev[platformId], legenda: newLegenda } }));
+    // Cancela o debounce anterior
+    if (debounceRefs.current[platformId]) clearTimeout(debounceRefs.current[platformId]);
+    setLiveScoring(prev => ({ ...prev, [platformId]: true }));
+    debounceRefs.current[platformId] = setTimeout(async () => {
+      const r = results?.[platformId];
+      await scoreCaption(platformId, newLegenda, r?.hashtags, true);
+      setLiveScoring(prev => ({ ...prev, [platformId]: false }));
+    }, 1500);
   };
 
   const [publishDateModal, setPublishDateModal] = useState(null);
@@ -3675,11 +3728,19 @@ data-onboard="generate-btn"
                               )}
                             </div>
                           ) : (
-                          <textarea
-                            value={r.legenda}
-                            onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
-                            className={`${inputClass} min-h-[100px]`} style={{ background: "#FFFFFF", color: TEXT, borderColor: BORDER }}
-                          />
+                          <div className="relative">
+                            <textarea
+                              value={r.legenda}
+                              onChange={(e) => onLegendaChange(p, e.target.value)}
+                              className={`${inputClass} min-h-[100px]`} style={{ background: "#FFFFFF", color: TEXT, borderColor: BORDER }}
+                            />
+                            {liveScoring[p] && (
+                              <div className="absolute top-2 right-2 flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
+                                <Loader2 size={9} className="animate-spin" />
+                                avaliando...
+                              </div>
+                            )}
+                          </div>
                           )}
                           {p === "youtube" && (
                             <div className="mt-3">
