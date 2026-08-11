@@ -36,6 +36,9 @@ import {
   Building2,
   Shield,
   Bell,
+  Eye,
+  Download,
+  Calendar,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -211,6 +214,25 @@ function sanitizeResults(parsed) {
     };
   });
   return out;
+}
+
+
+// Renderiza texto com quebras de linha e bullets de forma visual
+function renderLegenda(text) {
+  if (!text) return null;
+  const lines = text.split(/\n/);
+  return lines.map((line, i) => {
+    if (line.startsWith("•") || line.startsWith("-")) {
+      return (
+        <div key={i} className="flex gap-2 my-0.5">
+          <span style={{ color: "#01652A", fontWeight: 600, flexShrink: 0 }}>•</span>
+          <span>{line.replace(/^[•\-]\s*/, "")}</span>
+        </div>
+      );
+    }
+    if (line.trim() === "") return <div key={i} className="h-2" />;
+    return <div key={i}>{line}</div>;
+  });
 }
 
 const GlobalStyle = () => (
@@ -1144,13 +1166,17 @@ Avalie "seoScore" e "toneScore".`;
     }
   };
 
-  const saveCaption = async (platformId, destaque) => {
+  const [publishDateModal, setPublishDateModal] = useState(null);
+  const [publishDateInput, setPublishDateInput] = useState("");
+
+  const doSaveCaption = async (platformId, destaque, publishDate = "") => {
     const r = results?.[platformId];
     if (!r || !activeBU) return;
     setSavingCaption((prev) => ({ ...prev, [platformId]: true }));
     try {
       const entry = {
         id: `${Date.now()}`,
+        bu: activeBU,
         platform: platformId,
         legenda: r.legenda,
         hashtags: r.hashtags || [],
@@ -1163,16 +1189,16 @@ Avalie "seoScore" e "toneScore".`;
         destaqueTitle: false,
         visibility: "private",
         savedBy: currentUser?.name || "Anônimo",
+        userHash: currentUser?.hash || "",
         savedAt: new Date().toISOString(),
+        publishDate,
+        versions: [],
       };
       const current = library[activeBU] || [];
       const updated = [entry, ...current];
       setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
-      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
-      // Registra atividade se legenda for pública
-      if (entry.visibility === "public") {
-        storageAPI({ action: "logActivity", bu: activeBU, userName: currentUser?.name || "Anônimo", description: `Salvou uma legenda de ${platformId} sobre "${entry.topico?.slice(0, 50)}"`, type: "caption" }).catch(() => {});
-      }
+      localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+      storageAPI({ action: "saveCaption", caption: entry }).catch(() => {});
       setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
       setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
     } catch (e) {
@@ -1182,18 +1208,26 @@ Avalie "seoScore" e "toneScore".`;
     }
   };
 
+  const saveCaption = (platformId, destaque) => {
+    setPublishDateModal({ platformId, destaque });
+    setPublishDateInput("");
+  };
+
   const toggleDestaque = (id) => {
     const current = library[activeBU] || [];
+    const cap = current.find(x => x.id === id);
     const updated = current.map((c) => (c.id === id ? { ...c, destaque: !c.destaque } : c));
     setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
-    storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+    localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+    if (cap) storageAPI({ action: "saveCaption", caption: { ...cap, destaque: !cap.destaque } }).catch(() => {});
   };
 
   const deleteCaption = (id) => {
     const current = library[activeBU] || [];
     const updated = current.filter((c) => c.id !== id);
     setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
-    storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+    localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+    storageAPI({ action: "deleteCaption", captionId: id, bu: activeBU }).catch(() => {});
   };
 
   const copyToClipboard = async (key, text) => {
@@ -2290,9 +2324,28 @@ Avalie "seoScore" e "toneScore".`;
                             </button>
                           </div>
                         </div>
-                        <p className="text-sm whitespace-pre-wrap" style={{ color: TEXT }}>
-                          {c.legenda}
-                        </p>
+                        <div className="text-sm leading-relaxed" style={{ color: TEXT }}>
+                          {renderLegenda(c.legenda)}
+                        </div>
+                        {c.publishDate && (
+                          <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: MUTED }}>
+                            <Calendar size={11} />
+                            Publicar em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                        {c.versions?.length > 0 && (
+                          <details className="mt-2">
+                            <summary className="text-[11px] cursor-pointer" style={{ color: MUTED }}>
+                              {c.versions.length} versão(ões) anterior(es)
+                            </summary>
+                            {c.versions.map((v, vi) => (
+                              <div key={vi} className="mt-1 p-2 rounded text-xs leading-relaxed" style={{ background: "#F6F9F6", color: MUTED }}>
+                                <p className="text-[10px] mb-1">{new Date(v.savedAt).toLocaleString("pt-BR")}</p>
+                                {v.legenda}
+                              </div>
+                            ))}
+                          </details>
+                        )}
                         {c.hashtags?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {c.hashtags.map((h, i) => (
@@ -2727,20 +2780,49 @@ Avalie "seoScore" e "toneScore".`;
                               <Icon size={16} />
                               {PLATFORMS.find((pl) => pl.id === p).label}
                             </div>
-                            <button
-                              onClick={() => copyToClipboard(key, `${r.legenda}\n\n${(r.hashtags || []).map((h) => `#${h.replace(/^#/, "")}`).join(" ")}`)}
-                              className="ls-side-link flex items-center gap-1 text-xs"
-                              style={{ color: MUTED }}
-                            >
-                              {copiedKey === key ? <Check size={13} /> : <Copy size={13} />}
-                              {copiedKey === key ? "Copiado" : "Copiar"}
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setResults(prev => ({ ...prev, [`${p}_preview`]: !prev[`${p}_preview`] }))}
+                                className="text-xs flex items-center gap-1"
+                                style={{ color: results[`${p}_preview`] ? GREEN : MUTED }}
+                              >
+                                <Eye size={13} />
+                                {results[`${p}_preview`] ? "Editar" : "Preview"}
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(key, `${r.legenda}\n\n${(r.hashtags || []).map((h) => `#${h.replace(/^#/, "")}`).join(" ")}`)}
+                                className="ls-side-link flex items-center gap-1 text-xs"
+                                style={{ color: MUTED }}
+                              >
+                                {copiedKey === key ? <Check size={13} /> : <Copy size={13} />}
+                                {copiedKey === key ? "Copiado" : "Copiar"}
+                              </button>
+                            </div>
                           </div>
+                          {results[`${p}_preview`] ? (
+                            <div
+                              className="rounded-lg p-3 text-sm min-h-[100px] leading-relaxed"
+                              style={{
+                                background: p === "instagram" ? "linear-gradient(135deg,#f9f9f9,#fff)" : p === "linkedin" ? "#f3f6f8" : p === "tiktok" ? "#000" : "#fff",
+                                color: p === "tiktok" ? "#fff" : TEXT,
+                                border: `1px solid ${BORDER}`,
+                                fontFamily: p === "instagram" || p === "tiktok" ? "-apple-system,BlinkMacSystemFont,sans-serif" : "inherit",
+                              }}
+                            >
+                              {renderLegenda(r.legenda)}
+                              {(r.hashtags || []).length > 0 && (
+                                <div className="mt-2" style={{ color: p === "tiktok" ? "#69C9D0" : "#0a66c2" }}>
+                                  {r.hashtags.map(h => `#${h.replace(/^#/, "")}`).join(" ")}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                           <textarea
                             value={r.legenda}
                             onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
                             className={`${inputClass} min-h-[100px]`}
                           />
+                          )}
                           {p === "youtube" && (
                             <div className="mt-3">
                               <div className="flex items-center justify-between mb-1">
@@ -2875,24 +2957,82 @@ Crie/otimize o título:`,
               )}
 
               {results && (
-                <button
-                  onClick={() => {
-                    setResults(null);
-                    draft.mode === "novo" ? generateCaptions() : optimizeCaptions();
-                  }}
-                  disabled={genLoading}
-                  style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
-                  className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
-                >
-                  {genLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  Gerar novamente
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setResults(null);
+                      draft.mode === "novo" ? generateCaptions() : optimizeCaptions();
+                    }}
+                    disabled={genLoading}
+                    style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
+                    className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
+                  >
+                    {genLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                    Gerar novamente
+                  </button>
+                  <button
+                    onClick={() => {
+                      const texto = draft.platforms
+                        .filter(p => results[p])
+                        .map(p => {
+                          const r = results[p];
+                          const plat = PLATFORMS.find(pl => pl.id === p)?.label || p;
+                          const hashtags = (r.hashtags || []).map(h => `#${h.replace(/^#/, "")}`).join(" ");
+                          const titulo = p === "youtube" && r.titulo_youtube ? `Título: ${r.titulo_youtube}\n\n` : "";
+                          return `--- ${plat} ---\n${titulo}${r.legenda}\n\n${hashtags}`;
+                        })
+                        .join("\n\n");
+                      navigator.clipboard.writeText(texto).then(() => {
+                        setError(""); // limpa erros
+                        alert("Todas as legendas copiadas!");
+                      });
+                    }}
+                    style={{ background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
+                    className="px-3 flex items-center justify-center rounded-lg border hover:opacity-80 transition-opacity"
+                    title="Exportar todas as legendas"
+                  >
+                    <Download size={16} />
+                  </button>
+                </div>
               )}
             </div>
           )}
         </div>
       </main>
     </div>
+
+    {/* Modal data de publicação */}
+    {publishDateModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Data de publicação</p>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>Opcional — ajuda a organizar o calendário editorial.</p>
+          <input
+            type="date"
+            value={publishDateInput}
+            onChange={e => setPublishDateInput(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
+            style={{ borderColor: BORDER }}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setPublishDateModal(null); doSaveCaption(publishDateModal.platformId, publishDateModal.destaque, publishDateInput); }}
+              className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
+              style={{ background: GREEN }}
+            >
+              Salvar
+            </button>
+            <button
+              onClick={() => setPublishDateModal(null)}
+              className="px-4 py-2.5 rounded-lg text-sm border"
+              style={{ borderColor: BORDER, color: MUTED }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Modal de troca de rede */}
     {switchNetModal && (

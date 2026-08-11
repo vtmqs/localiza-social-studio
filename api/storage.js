@@ -186,6 +186,70 @@ export default async function handler(req, res) {
       return;
     }
 
+    // ---- LEGENDAS ----
+    if (action === "listCaptions") {
+      const rows = await sheetsGet(token, "Captions!A2:P");
+      const captions = rows
+        .filter(r => r[0] && r[1] === bu)
+        .filter(r => {
+          const { requesterRole, requesterHash } = req.body;
+          if (requesterRole === "admin" || requesterRole === "owner") return true;
+          return r[10] === "public" || r[14] === requesterHash;
+        })
+        .map(r => ({
+          id: r[0], bu: r[1], platform: r[2], legenda: r[3],
+          hashtags: r[4] ? JSON.parse(r[4]) : [],
+          topico: r[5], presetTitle: r[6],
+          seoScore: Number(r[7]) || 0, toneScore: Number(r[8]) || 0,
+          destaque: r[9] === "true", visibility: r[10] || "private",
+          savedBy: r[11], savedAt: r[12], publishDate: r[13] || "",
+          userHash: r[14] || "",
+          versions: r[15] ? JSON.parse(r[15]) : [],
+        }));
+      res.status(200).json({ captions });
+      return;
+    }
+
+    if (action === "saveCaption") {
+      const { caption } = req.body;
+      const rows = await sheetsGet(token, "Captions!A2:P");
+      const rowIdx = rows.findIndex(r => r[0] === caption.id);
+      // Se já existe, salva versão anterior antes de atualizar
+      let versions = caption.versions || [];
+      if (rowIdx >= 0 && rows[rowIdx][3]) {
+        const prev = { legenda: rows[rowIdx][3], savedAt: rows[rowIdx][12] };
+        versions = [prev, ...versions].slice(0, 10);
+      }
+      const row = [
+        caption.id, caption.bu, caption.platform, caption.legenda,
+        JSON.stringify(caption.hashtags || []),
+        caption.topico || "", caption.presetTitle || "",
+        caption.seoScore || 0, caption.toneScore || 0,
+        String(!!caption.destaque), caption.visibility || "private",
+        caption.savedBy || "Anônimo", caption.savedAt || new Date().toISOString(),
+        caption.publishDate || "", caption.userHash || "",
+        JSON.stringify(versions),
+      ];
+      if (rowIdx >= 0) await sheetsUpdate(token, `Captions!A${rowIdx + 2}:P${rowIdx + 2}`, [row]);
+      else await sheetsAppend(token, [row], "Captions");
+      // Registrar atividade se pública
+      if (caption.visibility === "public") {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+        await sheetsAppend(token, [[id, "caption", caption.bu, caption.savedBy, `Salvou legenda de ${caption.platform} sobre "${(caption.topico||"").slice(0,40)}"`, new Date().toISOString()]], "Activity");
+      }
+      res.status(200).json({ ok: true, versions });
+      return;
+    }
+
+    if (action === "deleteCaption") {
+      const { captionId } = req.body;
+      const rows = await sheetsGet(token, "Captions!A2:P");
+      const rowIdx = rows.findIndex(r => r[0] === captionId);
+      if (rowIdx >= 0) await sheetsClear(token, `Captions!A${rowIdx + 2}:P${rowIdx + 2}`);
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     res.status(400).json({ error: "Ação inválida." });
   } catch (e) {
     res.status(500).json({ error: `Erro: ${e.message}` });
