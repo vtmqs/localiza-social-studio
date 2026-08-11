@@ -386,7 +386,7 @@ const GlobalStyle = () => (
 
     /* ============ DARK MODE ============ */
     /* Paleta: fundo slate-esverdeado profundo, texto quase-branco suave */
-    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #3d5247; --dk-text: #e8f5ec; --dk-muted: #a8c8b2; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #6ee7a0; }
+    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #3d5247; --dk-text: #e8f5ec; --dk-muted: #a8c8b2; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #86efac; }
 
     /* Fundo geral */
     html.dark body,
@@ -458,6 +458,13 @@ const GlobalStyle = () => (
     html.dark .ls-check-icon { color: var(--dk-muted) !important; }
     input[type="checkbox"] { accent-color: #01652A; width: 15px; height: 15px; cursor: pointer; }
     html.dark input[type="checkbox"] { accent-color: #78DE1F; }
+
+    /* Verde escuro → verde claro no dark (regra abrangente) */
+    html.dark [style*="color: #01"],
+    html.dark [style*="color: #00"] { color: var(--dk-green) !important; }
+    html.dark [style*="color: GREEN"],
+    html.dark [style*="color: rgb(1,"],
+    html.dark [style*="color: rgb(0,"] { color: var(--dk-green) !important; }
 
     /* Correções de texto escuro no dark mode */
     /* Verde escuro → texto claro */
