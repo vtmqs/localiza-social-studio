@@ -964,7 +964,8 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [savedCaption, setSavedCaption] = useState({});
   const [starredCaption, setStarredCaption] = useState({});
-  const [confirmDelete, setConfirmDelete] = useState(null); // { id, type: "caption"|"title", label }
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [scoreModal, setScoreModal] = useState(null); // { platform, legenda, hashtags, seoScore, toneScore, originalScore, analysis, loading } // { id, type: "caption"|"title", label }
 
   // Chat assistente
   const [chatOpen, setChatOpen] = useState(false);
@@ -1169,6 +1170,52 @@ export default function App() {
   const [presetVisibility, setPresetVisibility] = useState("public");
   const [accessModal, setAccessModal] = useState(null); // { presetId, createdBy, editors: [] }
   const [allUsers, setAllUsers] = useState([]); // cache de usuários pra o modal
+
+  const openScoreModal = async (platform, r) => {
+    setScoreModal({ platform, legenda: r.legenda, hashtags: r.hashtags, seoScore: r.seoScore, toneScore: r.toneScore, originalScore: r.originalScore || 0, analysis: null, loading: true });
+    try {
+      const platformLabel = PLATFORMS.find(pl => pl.id === platform)?.label || platform;
+      const kws = (draft.keywords || []).map(k => typeof k === "object" ? k.kw : k).join(", ");
+      const { text } = await callAI({
+        system: `Você é especialista em SEO para redes sociais e brandvoice. Analise a legenda fornecida e gere uma análise honesta e detalhada em JSON. Seja criterioso — uma legenda comum não merece nota alta. Retorne SOMENTE JSON válido sem markdown.`,
+        prompt: `Legenda para ${platformLabel}:
+"${r.legenda}"
+
+Hashtags: ${(r.hashtags || []).join(", ") || "nenhuma"}
+Keywords alvo: ${kws || "não informadas"}
+Scores atuais — SEO: ${r.seoScore}/100, Tom: ${r.toneScore}/100, Originalidade: ${r.originalScore || 0}/100
+
+Retorne este JSON exato:
+{
+  "seo": {
+    "score": ${r.seoScore},
+    "pontos_positivos": ["lista do que está bom"],
+    "pontos_negativos": ["lista do que está faltando ou errado"],
+    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
+  },
+  "tom": {
+    "score": ${r.toneScore},
+    "pontos_positivos": ["lista do que está bom"],
+    "pontos_negativos": ["lista do que está faltando ou errado"],
+    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
+  },
+  "originalidade": {
+    "score": ${r.originalScore || 0},
+    "pontos_positivos": ["lista do que está bom"],
+    "pontos_negativos": ["lista do que está faltando ou errado"],
+    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
+  },
+  "resumo": "Uma frase direta sobre o estado geral da legenda"
+}`,
+        useSearch: false,
+      });
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setScoreModal(prev => ({ ...prev, analysis: parsed, loading: false }));
+    } catch (e) {
+      setScoreModal(prev => ({ ...prev, analysis: null, loading: false, error: "Não consegui gerar a análise agora." }));
+    }
+  };
 
   const openAccessModal = async (preset) => {
     // Carrega lista de usuários se ainda não tiver
@@ -3725,9 +3772,15 @@ Crie/otimize o título:`,
                           </div>
                           <div className="flex items-center justify-between mt-4 pt-4 border-t flex-wrap gap-3" style={{ borderColor: BORDER }}>
                             <div className="flex items-center gap-5">
-                              <ScoreRing label="SEO" value={r.seoScore} />
-                              <ScoreRing label="Tom" value={r.toneScore} />
-                              <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
+                              <button onClick={() => openScoreModal(p, r)} title="Analisar SEO" className="hover:opacity-75 transition-opacity">
+                                <ScoreRing label="SEO" value={r.seoScore} />
+                              </button>
+                              <button onClick={() => openScoreModal(p, r)} title="Analisar Tom" className="hover:opacity-75 transition-opacity">
+                                <ScoreRing label="Tom" value={r.toneScore} />
+                              </button>
+                              <button onClick={() => openScoreModal(p, r)} title="Analisar Originalidade" className="hover:opacity-75 transition-opacity">
+                                <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
+                              </button>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -4040,6 +4093,124 @@ Crie/otimize o título:`,
               style={{ background: GREEN }}
             >
               Salvar acesso
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de análise de scores */}
+    {scoreModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div className="bg-white rounded-2xl shadow-2xl flex flex-col" style={{ width: 480, maxWidth: "calc(100vw - 32px)", maxHeight: "85vh" }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: BORDER }}>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>Análise de qualidade</p>
+              <p className="text-[11px]" style={{ color: MUTED }}>{PLATFORMS.find(pl => pl.id === scoreModal.platform)?.label} · clique nos scores pra ver detalhes</p>
+            </div>
+            <button onClick={() => setScoreModal(null)}><X size={16} style={{ color: MUTED }} /></button>
+          </div>
+
+          <div className="overflow-y-auto flex-1 px-5 py-4">
+            {scoreModal.loading && (
+              <div className="flex flex-col items-center justify-center py-12 gap-3">
+                <Loader2 size={24} className="animate-spin" style={{ color: GREEN }} />
+                <p className="text-sm" style={{ color: MUTED }}>Analisando a legenda...</p>
+              </div>
+            )}
+
+            {scoreModal.error && !scoreModal.loading && (
+              <p className="text-sm text-center py-8" style={{ color: MUTED }}>{scoreModal.error}</p>
+            )}
+
+            {scoreModal.analysis && !scoreModal.loading && (() => {
+              const a = scoreModal.analysis;
+              const sections = [
+                { key: "seo", label: "SEO", score: a.seo?.score, color: "#01652A" },
+                { key: "tom", label: "Tom de marca", score: a.tom?.score, color: "#0A66C2" },
+                { key: "originalidade", label: "Originalidade", score: a.originalidade?.score, color: "#7C3AED" },
+              ];
+
+              return (
+                <div className="space-y-5">
+                  {a.resumo && (
+                    <div className="rounded-xl p-3" style={{ background: "#F6F9F6", borderLeft: `3px solid ${GREEN}` }}>
+                      <p className="text-xs leading-relaxed" style={{ color: GREEN_DARK }}>{a.resumo}</p>
+                    </div>
+                  )}
+
+                  {sections.map(({ key, label, score, color }) => {
+                    const data = a[key];
+                    if (!data) return null;
+                    return (
+                      <div key={key} className="border rounded-xl p-4" style={{ borderColor: BORDER }}>
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-sm font-semibold" style={{ color }}>{label}</p>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 rounded-full flex-1 w-24" style={{ background: "#E1E8E2" }}>
+                              <div className="h-2 rounded-full transition-all" style={{ width: `${score}%`, background: color }} />
+                            </div>
+                            <span className="text-xs font-bold" style={{ color }}>{score}/100</span>
+                          </div>
+                        </div>
+
+                        {data.pontos_positivos?.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: "#166534" }}>✓ O que está bom</p>
+                            {data.pontos_positivos.map((p, i) => (
+                              <p key={i} className="text-xs leading-relaxed" style={{ color: TEXT }}>· {p}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {data.pontos_negativos?.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: "#C0402A" }}>✗ O que está faltando</p>
+                            {data.pontos_negativos.map((p, i) => (
+                              <p key={i} className="text-xs leading-relaxed" style={{ color: TEXT }}>· {p}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        {data.como_chegar_a_100?.length > 0 && (
+                          <div className="mt-3 pt-3 border-t" style={{ borderColor: BORDER }}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: MUTED }}>Como chegar a 100</p>
+                            {data.como_chegar_a_100.map((p, i) => (
+                              <div key={i} className="flex gap-2 mb-1">
+                                <span className="text-[10px] font-bold shrink-0" style={{ color }}>{i + 1}.</span>
+                                <p className="text-xs leading-relaxed" style={{ color: TEXT }}>{p}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Footer com botão de reanalisar */}
+          <div className="px-5 py-3 border-t shrink-0 flex gap-2" style={{ borderColor: BORDER }}>
+            <button
+              onClick={() => openScoreModal(scoreModal.platform, {
+                legenda: scoreModal.legenda,
+                hashtags: scoreModal.hashtags,
+                seoScore: scoreModal.seoScore,
+                toneScore: scoreModal.toneScore,
+                originalScore: scoreModal.originalScore,
+              })}
+              disabled={scoreModal.loading}
+              className="flex-1 py-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5 disabled:opacity-60"
+              style={{ borderColor: GREEN, color: GREEN }}
+            >
+              {scoreModal.loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Reanalisar legenda atual
+            </button>
+            <button onClick={() => setScoreModal(null)} className="px-4 py-2 rounded-lg text-xs border" style={{ borderColor: BORDER, color: MUTED }}>
+              Fechar
             </button>
           </div>
         </div>
