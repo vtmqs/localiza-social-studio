@@ -815,18 +815,36 @@ export default function App() {
 
   // Chat assistente
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState(() => {
-    // Tenta carregar histórico salvo
-    try {
-      const saved = localStorage.getItem(`chat-history:${currentUser?.hash || "anon"}`);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    const nome = currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : "";
+  const [chatShowChoice, setChatShowChoice] = useState(false); // modal de escolha ao abrir
+  const defaultChatMsg = (user) => {
+    const nome = user?.name ? `, ${user.name.split(" ")[0]}` : "";
     return [{ role: "assistant", content: `Oi${nome}! 👋 Sou o assistente do Social Studio. Posso te ajudar com qualquer dúvida sobre a ferramenta, sugerir atalhos ou explicar como usar cada funcionalidade. Como posso ajudar?` }];
-  });
+  };
+  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = React.useRef(null);
+
+  // Ao abrir o chat, verifica se há histórico salvo
+  const openChat = () => {
+    const key = `chat-history:${currentUser?.hash || "anon"}`;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const history = JSON.parse(saved);
+        if (history.length > 1) {
+          // Tem histórico — pergunta se quer continuar ou começar novo
+          setChatMessages(history);
+          setChatShowChoice(true);
+          setChatOpen(true);
+          return;
+        }
+      }
+    } catch {}
+    // Sem histórico — abre direto com mensagem inicial
+    setChatMessages(defaultChatMsg(currentUser));
+    setChatOpen(true);
+  };
 
   React.useEffect(() => {
     if (chatOpen && chatEndRef.current) {
@@ -3765,7 +3783,7 @@ Crie/otimize o título:`,
     {/* Chat assistente flutuante */}
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
       {chatOpen && (
-        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col overflow-hidden"
+        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col overflow-hidden relative"
           style={{ width: 340, height: 480, borderColor: BORDER }}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 shrink-0"
@@ -3810,6 +3828,38 @@ Crie/otimize o título:`,
               </button>
             </div>
           </div>
+
+          {/* Modal de escolha: continuar ou nova conversa */}
+          {chatShowChoice && (
+            <div className="absolute inset-0 z-10 flex items-end pb-4 px-3 justify-center"
+              style={{ background: "rgba(0,0,0,0.35)", borderRadius: "0 0 16px 16px" }}>
+              <div className="bg-white rounded-xl p-4 w-full shadow-lg">
+                <p className="text-xs font-semibold mb-1" style={{ color: GREEN_DARK }}>Você tem uma conversa salva</p>
+                <p className="text-[11px] mb-3" style={{ color: MUTED }}>Quer continuar de onde parou ou começar uma nova?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setChatShowChoice(false)}
+                    className="flex-1 py-2 rounded-lg text-xs font-medium text-white"
+                    style={{ background: GREEN }}
+                  >
+                    Continuar
+                  </button>
+                  <button
+                    onClick={() => {
+                      const msgs = defaultChatMsg(currentUser);
+                      setChatMessages(msgs);
+                      try { localStorage.removeItem(`chat-history:${currentUser?.hash || "anon"}`); } catch {}
+                      setChatShowChoice(false);
+                    }}
+                    className="flex-1 py-2 rounded-lg text-xs font-medium border"
+                    style={{ borderColor: BORDER, color: MUTED }}
+                  >
+                    Nova conversa
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Mensagens */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ background: "#F6F9F6" }}>
@@ -3865,7 +3915,7 @@ Crie/otimize o título:`,
 
       {/* Botão flutuante */}
       <button
-        onClick={() => setChatOpen(o => !o)}
+        onClick={() => { if (chatOpen) setChatOpen(false); else openChat(); }}
         className="w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
         style={{ background: GREEN, boxShadow: "0 4px 20px rgba(1,101,42,0.4)" }}
         title="Assistente da ferramenta"
