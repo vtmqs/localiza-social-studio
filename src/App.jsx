@@ -1328,35 +1328,27 @@ Retorne este JSON exato:
     const exists = draft.keywords.some(k => (typeof k === "object" ? k.kw : k).toLowerCase() === kw.toLowerCase());
     if (exists) { setDraft(d => ({ ...d, keywordInput: "" })); return; }
 
-    // Adiciona com "medium" enquanto avalia
-    setDraft((d) => ({
-      ...d,
-      keywords: [...d.keywords, { kw, quality: "medium" }],
-      keywordInput: "",
-    }));
+    // Limpa o input imediatamente
+    setDraft(d => ({ ...d, keywordInput: "" }));
 
-    // Avalia via Gemini
+    // Avalia ANTES de adicionar ao chip
     let quality = "medium";
     try {
-      const buLabel = BUS.find(b => b.id === activeBU)?.label || "Localiza";
       const { text } = await callAI({
-        system: `Você avalia se palavras-chave são relevantes para posts de redes sociais de empresas de aluguel de carros e mobilidade. Responda SOMENTE com este JSON exato, sem mais nada: {"quality":"good"} ou {"quality":"medium"} ou {"quality":"low"}. Critério: good = claramente relacionado a carros, aluguel, viagem, mobilidade, transporte; medium = relacionado de forma ampla; low = sem nenhuma relação com o contexto de mobilidade ou aluguel de carros.`,
-        prompt: `Palavra-chave: "${kw}". Responda SOMENTE com o JSON.`,
+        system: `Você classifica palavras-chave por relevância para empresas de aluguel de carros e mobilidade. Responda APENAS com uma dessas três palavras, nada mais: good, medium ou low. Critério: good = palavra diretamente relacionada a carros, aluguel, viagem, motorista, estrada, combustível, seguro, reserva, mobilidade; medium = relacionada de forma indireta; low = sem nenhuma relação com carros ou mobilidade.`,
+        prompt: `Classifique: "${kw}"`,
         useSearch: false,
       });
-      // Extrai qualidade do retorno, mesmo que venha com texto extra
-      const match = text.match(/"quality"\s*:\s*"(good|medium|low)"/);
-      if (match) quality = match[1];
+      const t = text.trim().toLowerCase().replace(/[^a-z]/g, "");
+      if (t === "good" || t === "medium" || t === "low") quality = t;
     } catch (e) {
       console.warn("Erro ao avaliar KW:", e.message);
     }
 
-    // Atualiza a cor do chip
+    // Adiciona com a cor já correta
     setDraft((d) => ({
       ...d,
-      keywords: d.keywords.map((k) =>
-        (typeof k === "object" ? k.kw : k) === kw ? { kw, quality } : k
-      ),
+      keywords: [...d.keywords, { kw, quality }],
     }));
   };
 
