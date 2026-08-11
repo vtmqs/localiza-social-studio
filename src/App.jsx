@@ -292,6 +292,148 @@ const ONBOARDING_STEPS = [
   },
 ];
 
+
+// Renderiza markdown simples nas mensagens do chat
+// + converte menções a seções da ferramenta em links clicáveis
+function renderChatMessage(text, onNavigate) {
+  // Mapeamento de palavras-chave → ações de navegação
+  const navLinks = [
+    { pattern: /(Estilo geral da marca|estilos? da marca|configurar o estilo)/gi, page: "style", label: null },
+    { pattern: /(Estilos? criados?)/gi, page: "presets-list", label: null },
+    { pattern: /(Legendas? salvas?|biblioteca)/gi, page: "library", label: null },
+    { pattern: /(Nova legenda|criar legenda|nova legenda)/gi, page: "compose", label: null },
+    { pattern: /(Painel Admin)/gi, page: "admin", label: null },
+  ];
+
+  // Divide o texto em linhas pra processar
+  const lines = text.split("\n");
+  const elements = [];
+  let key = 0;
+
+  function processInline(str) {
+    // Transforma o texto inline aplicando bold, nav-links
+    // Primeiro aplica nav-links, depois bold
+    const parts = [];
+    let remaining = str;
+    let safetyCounter = 0;
+
+    while (remaining.length > 0 && safetyCounter++ < 200) {
+      // Testar cada padrão de navegação
+      let earliest = null;
+      let earliestPattern = null;
+      let earliestPage = null;
+
+      for (const { pattern, page } of navLinks) {
+        pattern.lastIndex = 0;
+        const match = pattern.exec(remaining);
+        if (match && (earliest === null || match.index < earliest.index)) {
+          earliest = match;
+          earliestPattern = pattern;
+          earliestPage = page;
+        }
+      }
+
+      // Testar bold **texto**
+      const boldMatch = /\*\*(.+?)\*\*/.exec(remaining);
+
+      if (earliest && boldMatch) {
+        // Qual vem primeiro?
+        if (earliest.index <= boldMatch.index) {
+          if (earliest.index > 0) parts.push(remaining.slice(0, earliest.index));
+          parts.push({ type: "navlink", text: earliest[0], page: earliestPage, key: key++ });
+          remaining = remaining.slice(earliest.index + earliest[0].length);
+        } else {
+          if (boldMatch.index > 0) parts.push(remaining.slice(0, boldMatch.index));
+          parts.push({ type: "bold", text: boldMatch[1], key: key++ });
+          remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+        }
+      } else if (earliest) {
+        if (earliest.index > 0) parts.push(remaining.slice(0, earliest.index));
+        parts.push({ type: "navlink", text: earliest[0], page: earliestPage, key: key++ });
+        remaining = remaining.slice(earliest.index + earliest[0].length);
+      } else if (boldMatch) {
+        if (boldMatch.index > 0) parts.push(remaining.slice(0, boldMatch.index));
+        parts.push({ type: "bold", text: boldMatch[1], key: key++ });
+        remaining = remaining.slice(boldMatch.index + boldMatch[0].length);
+      } else {
+        parts.push(remaining);
+        remaining = "";
+      }
+    }
+
+    return parts.map((part, i) => {
+      if (typeof part === "string") return <span key={i}>{part}</span>;
+      if (part.type === "bold") return <strong key={part.key} style={{ color: "#01652A", fontWeight: 700 }}>{part.text}</strong>;
+      if (part.type === "navlink") return (
+        <button
+          key={part.key}
+          onClick={() => onNavigate(part.page)}
+          style={{ color: "#01652A", fontWeight: 600, textDecoration: "underline", background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: "inherit" }}
+        >
+          {part.text}
+        </button>
+      );
+      return null;
+    });
+  }
+
+  let inList = false;
+  let listItems = [];
+
+  function flushList() {
+    if (listItems.length > 0) {
+      elements.push(
+        <ol key={key++} style={{ paddingLeft: 16, margin: "6px 0", display: "flex", flexDirection: "column", gap: 4 }}>
+          {listItems.map((item, i) => (
+            <li key={i} style={{ fontSize: 11, lineHeight: 1.5 }}>{processInline(item)}</li>
+          ))}
+        </ol>
+      );
+      listItems = [];
+      inList = false;
+    }
+  }
+
+  lines.forEach((line, i) => {
+    // Lista numerada: "1. texto"
+    const listMatch = line.match(/^\d+\.\s+(.+)$/);
+    if (listMatch) {
+      inList = true;
+      listItems.push(listMatch[1]);
+      return;
+    }
+
+    // Bullet: "- texto" ou "• texto"
+    const bulletMatch = line.match(/^[-•]\s+(.+)$/);
+    if (bulletMatch) {
+      flushList();
+      elements.push(
+        <div key={key++} style={{ display: "flex", gap: 6, margin: "2px 0" }}>
+          <span style={{ color: "#01652A", fontWeight: 700, flexShrink: 0 }}>•</span>
+          <span style={{ fontSize: 11, lineHeight: 1.5 }}>{processInline(bulletMatch[1])}</span>
+        </div>
+      );
+      return;
+    }
+
+    flushList();
+
+    if (line.trim() === "") {
+      if (i > 0) elements.push(<div key={key++} style={{ height: 6 }} />);
+      return;
+    }
+
+    elements.push(
+      <p key={key++} style={{ fontSize: 11, lineHeight: 1.6, margin: 0 }}>
+        {processInline(line)}
+      </p>
+    );
+  });
+
+  flushList();
+  return <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{elements}</div>;
+}
+
 const GlobalStyle = () => (
   <style>{`
     .ls-input { transition: border-color .15s ease, box-shadow .15s ease; }
@@ -3636,12 +3778,15 @@ Crie/otimize o título:`,
             {chatMessages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className="rounded-2xl px-3 py-2 text-xs leading-relaxed max-w-[85%]"
+                  className="rounded-2xl px-3 py-2 max-w-[85%]"
                   style={msg.role === "user"
-                    ? { background: GREEN, color: "#fff", borderBottomRightRadius: 4 }
+                    ? { background: GREEN, color: "#fff", borderBottomRightRadius: 4, fontSize: 11, lineHeight: 1.5 }
                     : { background: "#fff", color: TEXT, borderColor: BORDER, border: `1px solid ${BORDER}`, borderBottomLeftRadius: 4 }}
                 >
-                  {msg.content}
+                  {msg.role === "assistant"
+                    ? renderChatMessage(msg.content, (pg) => { setPageWithOnboard(pg); setChatOpen(false); })
+                    : <span style={{ fontSize: 11 }}>{msg.content}</span>
+                  }
                 </div>
               </div>
             ))}
