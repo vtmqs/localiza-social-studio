@@ -386,14 +386,15 @@ const GlobalStyle = () => (
 
     /* ============ DARK MODE ============ */
     /* Paleta: fundo slate-esverdeado profundo, texto quase-branco suave */
-    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #35473f; --dk-text: #ddeee4; --dk-muted: #8aab96; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #4ade80; }
+    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #3d5247; --dk-text: #e8f5ec; --dk-muted: #a8c8b2; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #6ee7a0; }
 
     /* Fundo geral */
     html.dark body,
     html.dark [style*="background: rgb(246"] { background: var(--dk-bg) !important; }
 
     /* Textos */
-    html.dark, html.dark p, html.dark span, html.dark div, html.dark h1, html.dark h2, html.dark h3, html.dark label { color: var(--dk-text); }
+    html.dark, html.dark p, html.dark span, html.dark div, html.dark h1, html.dark h2, html.dark h3, html.dark label, html.dark button, html.dark a { color: var(--dk-text); }
+    html.dark [style*="color: #16241A"], html.dark [style*="color: #014A1F"], html.dark [style*="color: #01652A"], html.dark [style*="color: #013318"] { color: var(--dk-text) !important; }
 
     /* Cards e painéis brancos */
     html.dark .bg-white,
@@ -423,7 +424,9 @@ const GlobalStyle = () => (
 
     /* Cor de texto secundário */
     html.dark [style*="color: #5B6B60"],
-    html.dark [style*="color: rgb(91"] { color: var(--dk-muted) !important; }
+    html.dark [style*="color: rgb(91"],
+    html.dark [style*="color: #8B"],
+    html.dark [style*="color: #7"] { color: var(--dk-muted) !important; }
 
     /* Preset items hover */
     html.dark .ls-preset-item:hover { background: var(--dk-surface) !important; }
