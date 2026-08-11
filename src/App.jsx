@@ -1322,33 +1322,41 @@ Retorne este JSON exato:
     }));
   };
 
-  const addKeyword = async () => {
+  const addKeyword = () => {
     const kw = draft.keywordInput.trim();
     if (!kw) return;
     const exists = draft.keywords.some(k => (typeof k === "object" ? k.kw : k).toLowerCase() === kw.toLowerCase());
     if (exists) { setDraft(d => ({ ...d, keywordInput: "" })); return; }
 
-    // Limpa o input imediatamente
-    setDraft(d => ({ ...d, keywordInput: "" }));
+    // Avaliação local determinística — sem Gemini, sem async, sem falha
+    const kwLower = kw.toLowerCase();
+    const goodTerms = [
+      "carro", "car", "aluguel", "aluga", "alugar", "veículo", "veiculo", "auto",
+      "viagem", "viajar", "viaje", "rota", "destino", "estrada", "rodovia", "km",
+      "motorista", "dirigir", "direção", "direcao", "volante", "gasolina", "combustível", "combustivel",
+      "seguro", "reserva", "reservar", "categoria", "modelo", "suv", "sedan", "hatch",
+      "pickup", "minivan", "elétrico", "eletrico", "híbrido", "hibrido",
+      "localiza", "rac", "zarp", "seminovo", "assinatura", "caminhão", "caminhao",
+      "frota", "locação", "locacao", "mobilidade", "transporte", "aeroporto", "transfer",
+      "byd", "toyota", "volkswagen", "fiat", "chevrolet", "hyundai", "honda", "renault",
+      "uber", "app", "aplicativo", "cnh", "habilitação", "habilitacao",
+      "quilômetro", "quilometro", "pecas", "manutenção", "manutencao",
+    ];
+    const mediumTerms = [
+      "viagem", "trip", "turismo", "turista", "férias", "ferias", "passeio",
+      "família", "familia", "negócio", "negocio", "executivo", "corporativo",
+      "economia", "economizar", "preço", "preco", "custo", "valor", "barato",
+      "dica", "guia", "como", "melhor", "top", "ranking",
+    ];
 
-    // Avalia ANTES de adicionar ao chip
-    let quality = "medium";
-    try {
-      const { text } = await callAI({
-        system: `Você classifica palavras-chave por relevância para empresas de aluguel de carros e mobilidade. Responda APENAS com uma dessas três palavras, nada mais: good, medium ou low. Critério: good = palavra diretamente relacionada a carros, aluguel, viagem, motorista, estrada, combustível, seguro, reserva, mobilidade; medium = relacionada de forma indireta; low = sem nenhuma relação com carros ou mobilidade.`,
-        prompt: `Classifique: "${kw}"`,
-        useSearch: false,
-      });
-      const t = text.trim().toLowerCase().replace(/[^a-z]/g, "");
-      if (t === "good" || t === "medium" || t === "low") quality = t;
-    } catch (e) {
-      console.warn("Erro ao avaliar KW:", e.message);
-    }
+    let quality = "low";
+    if (goodTerms.some(t => kwLower.includes(t) || t.includes(kwLower))) quality = "good";
+    else if (mediumTerms.some(t => kwLower.includes(t) || t.includes(kwLower))) quality = "medium";
 
-    // Adiciona com a cor já correta
-    setDraft((d) => ({
+    setDraft(d => ({
       ...d,
       keywords: [...d.keywords, { kw, quality }],
+      keywordInput: "",
     }));
   };
 
