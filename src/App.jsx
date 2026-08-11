@@ -767,6 +767,13 @@ REGRAS DO QUE VOCÊ PODE E NÃO PODE:
 Seja direto, prático e amigável. Quando sugerir uma ação, indique o caminho exato (ex: "vá em Estilo geral da marca → campo Tom de voz"). Responda sempre em português brasileiro casual.`;
 const OWNER_EMAIL = "vitoriatmqs@gmail.com";
 const isAdminUser = (user) => user && (user.email === OWNER_EMAIL || user.role === "admin" || user.role === "owner");
+const canEditPreset = (preset, user) => {
+  if (!user) return false;
+  if (isAdminUser(user)) return true;
+  if (preset.userHash === user.hash) return true;
+  if ((preset.editors || []).includes(user.hash)) return true;
+  return false;
+};
 
 // Hash simples da senha pessoal (não é criptografia bancária, mas evita
 // guardar a senha em texto puro no servidor)
@@ -1159,6 +1166,23 @@ export default function App() {
 
   // Estado de visibilidade ao salvar estilo
   const [presetVisibility, setPresetVisibility] = useState("public");
+  const [accessModal, setAccessModal] = useState(null); // { presetId, createdBy, editors: [] }
+  const [allUsers, setAllUsers] = useState([]); // cache de usuários pra o modal
+
+  const openAccessModal = async (preset) => {
+    // Carrega lista de usuários se ainda não tiver
+    if (allUsers.length === 0) {
+      try {
+        const data = await storageAPI({ action: "listUsers" });
+        setAllUsers(data.users || []);
+      } catch {}
+    }
+    setAccessModal({
+      presetId: preset.id,
+      presetTitle: preset.title,
+      editors: preset.editors || [],
+    });
+  };
 
   const savePreset = async () => {
     if (!formPreset.title.trim()) { setTitleError(true); return; }
@@ -2611,6 +2635,29 @@ data-onboard="library-btn"
                     </div>
                   </div>
 
+                  {/* Conceder acesso — só aparece pro criador e admins quando editando um estilo existente */}
+                  {formPreset.id && (formPreset.userHash === currentUser?.hash || isAdminUser(currentUser)) && (
+                    <button
+                      onClick={() => openAccessModal(formPreset)}
+                      className="w-full flex items-center justify-center gap-2 text-xs font-medium rounded-lg py-2 mb-3 border"
+                      style={{ borderColor: BORDER, color: MUTED }}
+                    >
+                      <Users size={13} />
+                      Conceder acesso de edição
+                      {(formPreset.editors || []).length > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px]" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
+                          {formPreset.editors.length}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Bloquear edição se não tiver permissão */}
+                  {formPreset.id && !canEditPreset(formPreset, currentUser) ? (
+                    <div className="rounded-lg p-3 text-xs text-center" style={{ background: "#FEF3C7", color: "#92400E" }}>
+                      Você não tem permissão para editar este estilo. Peça acesso ao criador.
+                    </div>
+                  ) : (
                   <button
                     onClick={savePreset}
                     disabled={saving}
@@ -2620,6 +2667,7 @@ data-onboard="library-btn"
                     {saving ? <Loader2 size={14} className="animate-spin" /> : showSaved ? <Check size={14} /> : null}
                     {showSaved ? "Estilo salvo" : editingId === "new" ? "Salvar novo estilo" : "Salvar alterações"}
                   </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -2783,7 +2831,8 @@ data-onboard="library-btn"
               ) : (
                 <div className="space-y-3">
                   {buPresets.map((p) => {
-                    const isOwner = p.userHash && p.userHash === currentUser?.hash;
+                    const canEdit = canEditPreset(p, currentUser);
+                    const isCreator = p.userHash === currentUser?.hash;
                     const isSelected = draft.presetId === p.id;
                     return (
                       <div
@@ -2798,16 +2847,27 @@ data-onboard="library-btn"
                             <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
                               Criado por <span className="font-medium">{p.createdBy || "Anônimo"}</span>
                               {p.visibility === "private" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#F0F4F3", color: MUTED }}>Privado</span>}
+                              {(p.editors || []).length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#EAF9DC", color: GREEN_DARK }}>{p.editors.length} editor(es)</span>}
                             </p>
                           </div>
-                          <div className="flex gap-1.5 shrink-0">
-                            {(isOwner || !p.userHash) && (
+                          <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                            {canEdit && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); selectPresetForEdit(p); setPage("style"); }}
                                 className="text-[11px] px-2 py-1 rounded border"
                                 style={{ borderColor: BORDER, color: MUTED }}
                               >
                                 Editar
+                              </button>
+                            )}
+                            {(isCreator || isAdminUser(currentUser)) && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openAccessModal(p); }}
+                                className="text-[11px] px-2 py-1 rounded border"
+                                style={{ borderColor: BORDER, color: MUTED }}
+                                title="Conceder acesso de edição"
+                              >
+                                <Users size={11} />
                               </button>
                             )}
                             <button
@@ -3879,6 +3939,86 @@ Crie/otimize o título:`,
         onDone={onboardDone}
         isLast={onboardStep === ONBOARDING_STEPS.length - 1}
       />
+    )}
+
+    {/* Modal de concessão de acesso de edição */}
+    {accessModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>Acesso de edição</p>
+              <p className="text-[11px]" style={{ color: MUTED }}>{accessModal.presetTitle}</p>
+            </div>
+            <button onClick={() => setAccessModal(null)}><X size={16} style={{ color: MUTED }} /></button>
+          </div>
+          <p className="text-xs mb-3" style={{ color: MUTED }}>Selecione quem pode editar este estilo além de você:</p>
+          {allUsers.length === 0 ? (
+            <p className="text-xs" style={{ color: MUTED }}>Carregando usuários...</p>
+          ) : (
+            <div className="space-y-2 max-h-52 overflow-y-auto mb-4">
+              {allUsers.filter(u => u.hash !== currentUser?.hash).map(u => {
+                const isEditor = (accessModal.editors || []).includes(u.hash);
+                return (
+                  <label key={u.hash} className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={isEditor}
+                      onChange={() => {
+                        setAccessModal(prev => ({
+                          ...prev,
+                          editors: isEditor
+                            ? prev.editors.filter(h => h !== u.hash)
+                            : [...(prev.editors || []), u.hash],
+                        }));
+                      }}
+                    />
+                    <div>
+                      <p className="text-xs font-medium" style={{ color: TEXT }}>{u.name}</p>
+                      <p className="text-[10px]" style={{ color: MUTED }}>{u.email}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button onClick={() => setAccessModal(null)} className="flex-1 py-2 rounded-lg text-xs border" style={{ borderColor: BORDER, color: MUTED }}>
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                const preset = buPresets.find(p => p.id === accessModal.presetId);
+                if (!preset) return;
+                const updated = { ...preset, editors: accessModal.editors || [] };
+                // Atualiza local
+                setPresets(prev => ({
+                  ...prev,
+                  [activeBU]: prev[activeBU].map(p => p.id === updated.id ? updated : p),
+                }));
+                localStorage.setItem(`presets-cache:${activeBU}`, JSON.stringify(
+                  buPresets.map(p => p.id === updated.id ? updated : p)
+                ));
+                // Salva no servidor
+                storageAPI({
+                  action: "savePreset", bu: activeBU,
+                  userHash: currentUser?.hash,
+                  userName: currentUser?.name,
+                  preset: updated,
+                  visibility: updated.visibility || "public",
+                }).catch(() => {});
+                // Se está editando esse preset, atualiza o formPreset também
+                if (formPreset.id === updated.id) setFormPreset(updated);
+                setAccessModal(null);
+              }}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold text-white"
+              style={{ background: GREEN }}
+            >
+              Salvar acesso
+            </button>
+          </div>
+        </div>
+      </div>
     )}
 
     {/* Modal de erro */}
