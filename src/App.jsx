@@ -1325,35 +1325,39 @@ Retorne este JSON exato:
   const addKeyword = async () => {
     const kw = draft.keywordInput.trim();
     if (!kw) return;
-    // Verifica se já existe
     const exists = draft.keywords.some(k => (typeof k === "object" ? k.kw : k).toLowerCase() === kw.toLowerCase());
     if (exists) { setDraft(d => ({ ...d, keywordInput: "" })); return; }
-    // Adiciona imediatamente com "medium" enquanto avalia
+
+    // Adiciona com "medium" enquanto avalia
     setDraft((d) => ({
       ...d,
       keywords: [...d.keywords, { kw, quality: "medium" }],
       keywordInput: "",
     }));
-    // Avalia via Gemini em background
+
+    // Avalia via Gemini
+    let quality = "medium";
     try {
       const buLabel = BUS.find(b => b.id === activeBU)?.label || "Localiza";
       const { text } = await callAI({
-        system: `Você avalia a qualidade semântica e de SEO de palavras-chave para posts de redes sociais da ${buLabel} (empresa de mobilidade e aluguel de carros). Retorne SOMENTE JSON: {"quality": "good"|"medium"|"low"}. Critérios — good: diretamente relevante para mobilidade/aluguel/viagem, boa intenção de busca; medium: relacionado mas genérico ou amplo demais; low: sem relação com o contexto ou irrelevante para SEO de redes sociais.`,
-        prompt: `Avalie a keyword para posts de ${buLabel}: "${kw}"`,
+        system: `Você avalia se palavras-chave são relevantes para posts de redes sociais de empresas de aluguel de carros e mobilidade. Responda SOMENTE com este JSON exato, sem mais nada: {"quality":"good"} ou {"quality":"medium"} ou {"quality":"low"}. Critério: good = claramente relacionado a carros, aluguel, viagem, mobilidade, transporte; medium = relacionado de forma ampla; low = sem nenhuma relação com o contexto de mobilidade ou aluguel de carros.`,
+        prompt: `Palavra-chave: "${kw}". Responda SOMENTE com o JSON.`,
         useSearch: false,
       });
-      const clean = text.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
-      const quality = ["good", "medium", "low"].includes(parsed.quality) ? parsed.quality : "medium";
-      setDraft((d) => ({
-        ...d,
-        keywords: d.keywords.map((k) =>
-          (typeof k === "object" ? k.kw : k) === kw ? { kw, quality } : k
-        ),
-      }));
-    } catch {
-      // Mantém "medium" se falhar
+      // Extrai qualidade do retorno, mesmo que venha com texto extra
+      const match = text.match(/"quality"\s*:\s*"(good|medium|low)"/);
+      if (match) quality = match[1];
+    } catch (e) {
+      console.warn("Erro ao avaliar KW:", e.message);
     }
+
+    // Atualiza a cor do chip
+    setDraft((d) => ({
+      ...d,
+      keywords: d.keywords.map((k) =>
+        (typeof k === "object" ? k.kw : k) === kw ? { kw, quality } : k
+      ),
+    }));
   };
 
   const removeKeyword = (kw) => {
