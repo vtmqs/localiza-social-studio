@@ -39,6 +39,8 @@ import {
   Eye,
   Download,
   Calendar,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -211,6 +213,7 @@ function sanitizeResults(parsed) {
       legenda: sanitizeDashes(r.legenda),
       hashtags: (r.hashtags || []).map((h) => sanitizeDashes(h)),
       titulo_youtube: r.titulo_youtube ? sanitizeDashes(r.titulo_youtube) : "",
+      originalScore: typeof r.originalScore === "number" ? r.originalScore : 0,
     };
   });
   return out;
@@ -234,6 +237,78 @@ function renderLegenda(text) {
     return <div key={i}>{line}</div>;
   });
 }
+
+
+// ---- TEMA ESCURO ----
+const DARK = {
+  BG: "#0F1A12",
+  TEXT: "#E8F0E9",
+  MUTED: "#8BA890",
+  BORDER: "#2A3D2E",
+  CARD: "#1A2B1E",
+  INPUT: "#1E311F",
+};
+
+function useTheme() {
+  const [dark, setDark] = React.useState(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved) return saved === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = (e) => {
+      if (!localStorage.getItem("theme")) setDark(e.matches);
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const toggle = () => {
+    setDark(d => {
+      localStorage.setItem("theme", !d ? "dark" : "light");
+      return !d;
+    });
+  };
+
+  return { dark, toggle };
+}
+
+
+const ONBOARDING_STEPS = [
+  {
+    title: "Bem-vinda ao Social Studio! 👋",
+    desc: "Aqui você gera legendas otimizadas para as redes sociais da Localiza em segundos. Vou te mostrar como funciona em 5 passos rápidos.",
+    img: null,
+    target: null,
+  },
+  {
+    title: "1. Escolha a BU",
+    desc: "Cada BU tem seu próprio espaço: RAC Brasil, Zarp, Assinatura, Caminhões e Seminovos. Comece clicando na BU do post que vai criar.",
+    target: "bu-list",
+  },
+  {
+    title: "2. Configure o estilo da marca",
+    desc: "Em 'Estilo geral da marca', defina as regras, tom de voz e vocabulário da BU. Quanto mais rico o estilo, melhor a legenda. Só precisa fazer isso uma vez — fica salvo pra todo o time.",
+    target: "side-style",
+  },
+  {
+    title: "3. Preencha o tópico e as opções",
+    desc: "Descreva o assunto do post, sugira palavras-chave, escolha o tamanho, tom e redes. Você também pode buscar conteúdo relacionado publicado pela Localiza pra usar como referência ou link.",
+    target: "compose-area",
+  },
+  {
+    title: "4. Gere, revise e salve",
+    desc: "Clique em 'Criar legenda'. O resultado aparece com notas de SEO e Tom. Edite se quiser, clique em 'Preview' pra ver como vai ficar no feed, e salve com a data de publicação.",
+    target: "generate-btn",
+  },
+  {
+    title: "5. Biblioteca e calendário",
+    desc: "Tudo que você salvar fica em 'Legendas salvas'. No calendário você visualiza os posts agendados por dia. Legendas destacadas (⭐) viram referência automática pras próximas gerações.",
+    target: "side-library",
+  },
+];
 
 const GlobalStyle = () => (
   <style>{`
@@ -473,6 +548,27 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminPresets, setAdminPresets] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+
+  // Tema
+  const { dark, toggle: toggleDark } = useTheme();
+  const T = dark ? DARK : { BG, TEXT, MUTED, BORDER, CARD: "#FFFFFF", INPUT: "#FFFFFF" };
+
+  // Onboarding
+  const [onboardStep, setOnboardStep] = useState(() => {
+    return localStorage.getItem("onboard-done") ? -1 : 0;
+  });
+  const onboardDone = () => { localStorage.setItem("onboard-done", "1"); setOnboardStep(-1); };
+
+  // Busca na biblioteca
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState("all"); // all | instagram | linkedin | tiktok | youtube | destaque
+
+  // Calendário
+  const [calMonth, setCalMonth] = useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
+  });
+  const [calView, setCalView] = useState(false); // false = lista, true = calendário
+
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifSeen, setNotifSeen] = useState(() => { try { return JSON.parse(localStorage.getItem("notif-seen") || "{}"); } catch { return {}; } });
@@ -555,6 +651,20 @@ export default function App() {
         localStorage.setItem(`captions-cache:${buId}`, JSON.stringify(list));
       }).catch(() => {});
   }, []);
+
+  // Atalhos de teclado
+  useEffect(() => {
+    const handler = (e) => {
+      if (!results && !genLoading) return;
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === "Enter" && page === "compose") {
+        e.preventDefault();
+        draft.mode === "novo" ? generateCaptions() : optimizeCaptions();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [page, draft.mode, results, genLoading]);
 
   useEffect(() => {
     if (activeBU && !presetsLoaded[activeBU]) loadPresets(activeBU);
@@ -1043,8 +1153,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: escreva como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda gerada em "seoScore" (0-100, cobertura temática das keywords e uso estratégico de hashtags) e "toneScore" (0-100, aderência a regras/tom/eixo/fio condutor). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0}}
-ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0, "originalScore": 0}}
+ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves. O campo "originalScore" (0-100) avalia: abertura não é clichê (+40), estrutura varia das últimas legendas (+30), sem construções genéricas de IA (+30).`
 
       const prompt = `Tópico do post: ${draft.topic}
 Objetivo do post: ${draft.objective}
@@ -1113,8 +1223,8 @@ OTIMIZAÇÃO SEO PARA REDES SOCIAIS: otimize como um especialista em SEO e conte
 Para cada plataforma, avalie a legenda otimizada em "seoScore" (0-100, cobertura temática das keywords) e "toneScore" (0-100). Seja criterioso.
 
 Responda SOMENTE com um objeto JSON válido, sem markdown, no formato:
-{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0}}
-ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves.`
+{"plataforma_id": {"legenda": "Primeira frase.\n\n• Item um\n• Item dois\n\nEncerramento.", "hashtags": ["hashtag"], "seoScore": 0, "toneScore": 0, "originalScore": 0}}
+ATENÇÃO: no campo "legenda", use \n para quebras de linha. NÃO inclua titulo_youtube aqui. Use exatamente os ids de plataforma como chaves. O campo "originalScore" (0-100) avalia: abertura não é clichê (+40), estrutura varia das últimas legendas (+30), sem construções genéricas de IA (+30).`
 
       const prompt = `Legenda atual a ser otimizada: """${draft.existingCaption}"""
 Objetivo do post: ${draft.objective}
@@ -1483,7 +1593,7 @@ Avalie "seoScore" e "toneScore".`;
 
   // ---------- WORKSPACE ----------
   return (
-    <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif" }}>
+    <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: T.BG, color: T.TEXT, fontFamily: "system-ui, sans-serif" }}>
       <GlobalStyle />
       {/* Overlay mobile quando menu aberto */}
       {mobileMenuOpen && (
@@ -1596,6 +1706,16 @@ Avalie "seoScore" e "toneScore".`;
               <p className="text-white/80 text-xs font-medium">{currentUser.name}</p>
             </div>
           )}
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={toggleDark}
+              className="flex items-center gap-1.5 text-white/50 text-xs hover:text-white/80 transition-colors"
+              title={dark ? "Mudar para claro" : "Mudar para escuro"}
+            >
+              {dark ? <Sun size={13} /> : <Moon size={13} />}
+              {dark ? "Modo claro" : "Modo escuro"}
+            </button>
+          </div>
           <button
             onClick={async () => {
               storage.set("current-user", "");
@@ -2255,8 +2375,40 @@ Avalie "seoScore" e "toneScore".`;
 
           {page === "library" && (
             <div>
-              <p className="text-sm mb-6" style={{ color: MUTED }}>
+              <p className="text-sm mb-2" style={{ color: T.MUTED }}>
                 Legendas salvas de {bu.label}. As destacadas (⭐) têm mais peso como exemplo pra próxima geração.
+
+                <div className="flex flex-wrap gap-2 mt-4 mb-2">
+                  <input
+                    type="text"
+                    value={librarySearch}
+                    onChange={e => setLibrarySearch(e.target.value)}
+                    placeholder="Buscar nas legendas..."
+                    className="flex-1 text-sm border rounded-lg px-3 py-2"
+                    style={{ borderColor: T.BORDER, background: T.INPUT, color: T.TEXT, minWidth: 160 }}
+                  />
+                  <select
+                    value={libraryFilter}
+                    onChange={e => setLibraryFilter(e.target.value)}
+                    className="text-sm border rounded-lg px-2 py-2"
+                    style={{ borderColor: T.BORDER, background: T.INPUT, color: T.TEXT }}
+                  >
+                    <option value="all">Todas as redes</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="tiktok">TikTok</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="destaque">⭐ Destacadas</option>
+                  </select>
+                  <button
+                    onClick={() => setCalView(v => !v)}
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border"
+                    style={calView ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: T.BORDER, color: T.MUTED, background: T.INPUT }}
+                  >
+                    <Calendar size={14} />
+                    {calView ? "Lista" : "Calendário"}
+                  </button>
+                </div>
                 {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).length > 0 && (
                   <div className="mt-6">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>Títulos YouTube salvos</p>
@@ -2732,6 +2884,7 @@ Avalie "seoScore" e "toneScore".`;
                 >
                   {genLoading ? <Loader2 size={16} className="animate-spin" /> : draft.mode === "novo" ? <Sparkles size={16} /> : <Wand2 size={16} />}
                   {draft.mode === "novo" ? "Criar legenda" : "Otimizar legenda"}
+                  <span className="text-[10px] opacity-60 ml-1">⌘↵</span>
                 </button>
 
                 {draft.platforms.includes("youtube") && (
@@ -2921,8 +3074,9 @@ Crie/otimize o título:`,
                           </div>
                           <div className="flex items-center justify-between mt-4 pt-4 border-t flex-wrap gap-3" style={{ borderColor: BORDER }}>
                             <div className="flex items-center gap-5">
-                              <ScoreRing label="Otimização SEO" value={r.seoScore} />
-                              <ScoreRing label="Tom da marca" value={r.toneScore} />
+                              <ScoreRing label="SEO" value={r.seoScore} />
+                              <ScoreRing label="Tom" value={r.toneScore} />
+                              <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -3132,6 +3286,45 @@ Crie/otimize o título:`,
         </div>
       </div>
     )}
+
+    {/* Onboarding */}
+    {onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (() => {
+      const step = ONBOARDING_STEPS[onboardStep];
+      const isLast = onboardStep === ONBOARDING_STEPS.length - 1;
+      return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+          <div className="bg-white rounded-2xl p-7 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
+                {onboardStep + 1} de {ONBOARDING_STEPS.length}
+              </span>
+              <button onClick={onboardDone} className="text-xs" style={{ color: MUTED }}>Pular tour</button>
+            </div>
+            <h3 className="text-lg font-bold mt-3 mb-2" style={{ color: GREEN_DARK }}>{step.title}</h3>
+            <p className="text-sm leading-relaxed mb-5" style={{ color: MUTED }}>{step.desc}</p>
+            <div className="flex gap-2">
+              {onboardStep > 0 && (
+                <button onClick={() => setOnboardStep(s => s - 1)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: BORDER, color: MUTED }}>
+                  Voltar
+                </button>
+              )}
+              <button
+                onClick={() => isLast ? onboardDone() : setOnboardStep(s => s + 1)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
+                style={{ background: GREEN }}
+              >
+                {isLast ? "Começar a usar!" : "Próximo →"}
+              </button>
+            </div>
+            <div className="flex justify-center gap-1.5 mt-4">
+              {ONBOARDING_STEPS.map((_, i) => (
+                <div key={i} className="w-1.5 h-1.5 rounded-full transition-all" style={{ background: i === onboardStep ? GREEN : BORDER }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Modal de erro */}
     {errorModal && (
