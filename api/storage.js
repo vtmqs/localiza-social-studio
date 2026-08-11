@@ -62,7 +62,16 @@ export default async function handler(req, res) {
       const rows = await sheetsGet(token, "Users!A2:D");
       const user = rows.find((r) => r[0] === userHash);
       const isOwner = email === OWNER_EMAIL;
-      res.status(200).json({ exists: !!user, user: user ? { hash: user[0], name: user[1], email: user[2] || "", role: isOwner ? "owner" : (user[3] || "user") } : null });
+      // Se for owner mas não estiver na planilha ainda, retorna exists: true mesmo assim
+      if (isOwner && !user) {
+        res.status(200).json({ exists: true, user: { hash: userHash, name: email.split("@")[0], email, role: "owner" } });
+        return;
+      }
+      if (!user) {
+        res.status(200).json({ exists: false, user: null });
+        return;
+      }
+      res.status(200).json({ exists: true, user: { hash: user[0], name: user[1], email: user[2] || email || "", role: isOwner ? "owner" : (user[3] || "user") } });
       return;
     }
 

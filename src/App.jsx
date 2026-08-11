@@ -846,23 +846,33 @@ export default function App() {
     if (!loginPwd.trim()) { setLoginError("Digite sua senha pessoal."); return; }
     const hash = hashPassword(regEmail.trim().toLowerCase() + "|" + loginPwd);
     const emailLower = regEmail.trim().toLowerCase();
+    // Owner sempre tem acesso — role definido localmente sem depender do Sheets
+    const isOwner = emailLower === OWNER_EMAIL;
     storageAPI({ action: "checkUser", userHash: hash, email: emailLower }).then((data) => {
       if (data?.exists && data?.user) {
-        const user = { name: data.user.name, hash, email: emailLower, role: data.user.role || "user" };
+        const role = isOwner ? "owner" : (data.user.role || "user");
+        const user = { name: data.user.name, hash, email: emailLower, role };
         setCurrentUser(user);
         storage.set("current-user", JSON.stringify(user));
         setShowRegister(false);
+      } else if (isOwner) {
+        // Owner consegue logar mesmo sem estar no Sheets (primeiro acesso em dispositivo novo)
+        const user = { name: emailLower.split("@")[0], hash, email: emailLower, role: "owner" };
+        setCurrentUser(user);
+        storage.set("current-user", JSON.stringify(user));
+        storageAPI({ action: "registerUser", name: user.name, userHash: hash, email: emailLower }).catch(() => {});
+        setShowRegister(false);
       } else {
-        // Usuário pode estar no localStorage mas não no Sheets ainda
-        // Tenta recuperar pelo localStorage
+        // Fallback localStorage
         try {
           const saved = localStorage.getItem("current-user");
           if (saved) {
             const savedUser = JSON.parse(saved);
             if (savedUser.hash === hash) {
-              setCurrentUser(savedUser);
+              const role = isOwner ? "owner" : (savedUser.role || "user");
+              const user = { ...savedUser, role };
+              setCurrentUser(user);
               setShowRegister(false);
-              // Re-registra no Sheets em background
               storageAPI({ action: "registerUser", name: savedUser.name, userHash: hash, email: emailLower }).catch(() => {});
               return;
             }
@@ -870,7 +880,17 @@ export default function App() {
         } catch {}
         setLoginError("Email ou senha incorretos.");
       }
-    }).catch(() => setLoginError("Erro ao conectar. Verifica sua conexão e tenta de novo."));
+    }).catch(() => {
+      // Se o Sheets falhar, owner ainda consegue entrar
+      if (isOwner) {
+        const user = { name: "Vitória", hash, email: emailLower, role: "owner" };
+        setCurrentUser(user);
+        storage.set("current-user", JSON.stringify(user));
+        setShowRegister(false);
+      } else {
+        setLoginError("Erro ao conectar. Verifica sua conexão e tenta de novo.");
+      }
+    });
   }
 
   const [screen, setScreen] = useState(() => {
