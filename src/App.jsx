@@ -1272,10 +1272,33 @@ export default function App() {
     }));
   };
 
-  const addKeyword = () => {
+  const addKeyword = async () => {
     const kw = draft.keywordInput.trim();
     if (!kw) return;
-    setDraft((d) => ({ ...d, keywords: [...new Set([...d.keywords, kw])], keywordInput: "" }));
+    // Adiciona imediatamente com quality "medium" enquanto avalia
+    setDraft((d) => ({
+      ...d,
+      keywords: [...d.keywords, { kw, quality: "medium" }],
+      keywordInput: "",
+    }));
+    // Avalia a KW via Gemini em background
+    try {
+      const { text } = await callAI({
+        system: `Você avalia a qualidade semântica e SEO de palavras-chave para redes sociais da Localiza (aluguel de carros). Retorne SOMENTE um JSON no formato: {"quality": "good"|"medium"|"low"}. Critérios: good = relevante para aluguel de carros/viagens/mobilidade com bom volume de busca estimado; medium = relacionado mas genérico ou competitivo demais; low = sem relação com o contexto ou volume muito baixo.`,
+        prompt: `Avalie a keyword: "${kw}"`,
+        useSearch: false,
+      });
+      const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
+      const quality = ["good", "medium", "low"].includes(parsed.quality) ? parsed.quality : "medium";
+      setDraft((d) => ({
+        ...d,
+        keywords: d.keywords.map((k) =>
+          (typeof k === "object" ? k.kw : k) === kw ? { kw, quality } : k
+        ),
+      }));
+    } catch {
+      // Mantém "medium" se falhar
+    }
   };
 
   const removeKeyword = (kw) => {
