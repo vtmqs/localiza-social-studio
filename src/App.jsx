@@ -3631,7 +3631,8 @@ Crie/otimize o título:`,
               )}
 
               {results && (
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
                   <button
                     onClick={() => {
                       setResults(null);
@@ -3666,6 +3667,18 @@ Crie/otimize o título:`,
                     title="Exportar todas as legendas"
                   >
                     <Download size={16} />
+                  </button>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setResults(null);
+                      setDraft(emptyDraft());
+                    }}
+                    style={{ borderColor: BORDER, color: MUTED }}
+                    className="w-full flex items-center justify-center gap-2 text-xs font-medium rounded-lg py-2 border hover:opacity-80 transition-opacity"
+                  >
+                    <Plus size={14} />
+                    Nova legenda (limpar campos)
                   </button>
                 </div>
               )}
