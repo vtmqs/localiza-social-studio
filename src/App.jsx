@@ -42,6 +42,7 @@ import {
   MessageCircle,
   Send,
   HelpCircle,
+  Link as LinkIcon,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -2899,10 +2900,24 @@ data-onboard="library-btn"
                           return (
                             <div key={day} className="rounded-lg p-1.5 min-h-[48px]" style={{ background: isToday ? LIME_SOFT : "#FFFFFF", border: `1px solid ${isToday ? LIME : BORDER}` }}>
                               <p className="text-[10px] font-bold mb-1" style={{ color: isToday ? GREEN_DARK : MUTED }}>{day}</p>
-                              {posts.slice(0, 3).map((post, pi) => (
-                                <div key={pi} className="w-full h-1.5 rounded-full mb-0.5" style={{ background: platColor[post.platform] || GREEN }} title={`[${post.platform}] ${post.topico || ""}`} />
+                              {posts.slice(0, 2).map((post, pi) => (
+                                <button
+                                  key={pi}
+                                  onClick={() => {
+                                    setCalView(false);
+                                    setTimeout(() => {
+                                      const el = document.getElementById(`caption-${post.id}`);
+                                      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                    }, 100);
+                                  }}
+                                  className="w-full text-left rounded px-1 py-0.5 mb-0.5 truncate hover:opacity-80"
+                                  style={{ background: platColor[post.platform] || GREEN, color: "#fff", fontSize: 8, lineHeight: 1.3 }}
+                                  title={post.topico || post.legenda?.slice(0, 60)}
+                                >
+                                  {(post.topico || post.legenda || "").slice(0, 18) || post.platform}
+                                </button>
                               ))}
-                              {posts.length > 3 && <p className="text-[8px]" style={{ color: MUTED }}>+{posts.length - 3}</p>}
+                              {posts.length > 2 && <p className="text-[8px]" style={{ color: MUTED }}>+{posts.length - 2}</p>}
                             </div>
                           );
                         })}
@@ -2998,9 +3013,33 @@ data-onboard="library-btn"
                         {c.publishDate && (
                           <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: MUTED }}>
                             <Calendar size={11} />
-                            Gerada em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
+                            Publicar em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
                           </p>
                         )}
+                        <div className="mt-2 flex items-center gap-2">
+                          <LinkIcon size={11} style={{ color: MUTED, flexShrink: 0 }} />
+                          <input
+                            type="url"
+                            value={c.postLink || ""}
+                            onChange={(e) => {
+                              const updated = buLibrary.map(x => x.id === c.id ? { ...x, postLink: e.target.value } : x);
+                              setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                              localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+                            }}
+                            onBlur={(e) => {
+                              const updated = buLibrary.map(x => x.id === c.id ? { ...x, postLink: e.target.value } : x);
+                              storageAPI({ action: "saveCaption", caption: { ...c, postLink: e.target.value } }).catch(() => {});
+                            }}
+                            placeholder="Link do post publicado (opcional)"
+                            className="flex-1 text-[11px] border rounded px-2 py-1"
+                            style={{ borderColor: BORDER, color: MUTED }}
+                          />
+                          {c.postLink && (
+                            <a href={c.postLink} target="_blank" rel="noreferrer" style={{ color: GREEN }}>
+                              <ExternalLink size={11} />
+                            </a>
+                          )}
+                        </div>
                         {c.versions?.length > 0 && (
                           <details className="mt-2">
                             <summary className="text-[11px] cursor-pointer" style={{ color: MUTED }}>
