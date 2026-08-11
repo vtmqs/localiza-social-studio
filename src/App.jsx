@@ -3589,17 +3589,15 @@ data-onboard="library-btn"
                     {draft.keywords.map((kwObj) => {
                       const kw = typeof kwObj === "object" ? kwObj.kw : kwObj;
                       const quality = typeof kwObj === "object" ? (kwObj.quality || "medium") : "low";
-                      const qualityColor = quality === "good" ? "#166534" : quality === "medium" ? "#92400E" : "#7F1D1D";
-                      const qualityBg = quality === "good" ? "#DCFCE7" : quality === "medium" ? "#FEF3C7" : "#FEE2E2";
-                      const qualityBorder = quality === "good" ? "#86EFAC" : quality === "medium" ? "#FCD34D" : "#FCA5A5";
+                      const qualityColor = quality === "good" ? "#16a34a" : quality === "medium" ? "#d97706" : "#dc2626";
                       const selected = draft.keywordSelected?.[kw.toLowerCase()] !== false;
                       return (
                         <span
                           key={kw}
                           style={{
-                            background: selected ? LIME_SOFT : qualityBg,
-                            borderColor: selected ? LIME : qualityBorder,
-                            color: selected ? GREEN_DARK : qualityColor,
+                            background: selected ? LIME_SOFT : "#F9FAFB",
+                            borderColor: selected ? LIME : "#E5E7EB",
+                            color: selected ? GREEN_DARK : "#374151",
                           }}
                           className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-medium"
                         >
@@ -3613,6 +3611,12 @@ data-onboard="library-btn"
                             {selected && <Check size={10} color="#FFFFFF" />}
                           </button>
                           {kw}
+                          {/* Indicador de quality sempre visível */}
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: qualityColor }}
+                            title={quality === "good" ? "Boa relevância SEO" : quality === "medium" ? "Relevância média" : "Baixa relevância SEO"}
+                          />
                           <button onClick={() => removeKeyword(kw)} className="ls-chip-x focus:outline-none" aria-label="Excluir">
                             <X size={12} />
                           </button>
