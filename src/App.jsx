@@ -964,6 +964,7 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [savedCaption, setSavedCaption] = useState({});
   const [starredCaption, setStarredCaption] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState(null); // { id, type: "caption"|"title", label }
 
   // Chat assistente
   const [chatOpen, setChatOpen] = useState(false);
@@ -1805,10 +1806,8 @@ Avalie "seoScore" e "toneScore".`;
       storageAPI({ action: "saveCaption", caption: entry }).catch(() => {});
       if (destaque) {
         setStarredCaption((prev) => ({ ...prev, [platformId]: true }));
-        setTimeout(() => setStarredCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
       } else {
         setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
-        setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
       }
     } catch (e) {
       setError("Não consegui salvar essa legenda agora.");
@@ -3098,7 +3097,10 @@ data-onboard="library-btn"
                             <button onClick={() => toggleDestaque(c.id)} aria-label="Destacar">
                               <Star size={16} fill={c.destaque ? LIME : "none"} style={{ color: c.destaque ? LIME : MUTED }} />
                             </button>
-                            <button onClick={() => deleteCaption(c.id)} aria-label="Excluir">
+                            <button
+                              onClick={() => setConfirmDelete({ id: c.id, type: "caption", label: c.topico || c.legenda?.slice(0,40) || "esta legenda" })}
+                              aria-label="Excluir"
+                            >
                               <Trash2 size={14} style={{ color: "#8A3A1F" }} />
                             </button>
                           </div>
@@ -4038,6 +4040,43 @@ Crie/otimize o título:`,
               style={{ background: GREEN }}
             >
               Salvar acesso
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal de confirmação de exclusão */}
+    {confirmDelete && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "#FEE2E2" }}>
+              <Trash2 size={18} style={{ color: "#7F1D1D" }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#7F1D1D" }}>Excluir definitivamente?</p>
+              <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: MUTED }}>"{confirmDelete.label}"</p>
+            </div>
+          </div>
+          <p className="text-xs mb-4" style={{ color: MUTED }}>Esta ação não pode ser desfeita.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setConfirmDelete(null)}
+              className="flex-1 py-2.5 rounded-lg text-xs font-medium border"
+              style={{ borderColor: BORDER, color: MUTED }}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                deleteCaption(confirmDelete.id);
+                setConfirmDelete(null);
+              }}
+              className="flex-1 py-2.5 rounded-lg text-xs font-semibold text-white"
+              style={{ background: "#DC2626" }}
+            >
+              Excluir
             </button>
           </div>
         </div>
