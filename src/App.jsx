@@ -1359,7 +1359,7 @@ Palavra-chave a avaliar: "${kw}"`,
 
   const toggleKeywordSelected = (kw) => {
     setDraft((d) => {
-      const key = kw.toLowerCase();
+      const key = (typeof kw === "object" ? kw.kw : kw).toLowerCase();
       const current = d.keywordSelected?.[key] !== false;
       return { ...d, keywordSelected: { ...d.keywordSelected, [key]: !current } };
     });
@@ -1494,7 +1494,7 @@ Palavra-chave a avaliar: "${kw}"`,
       // Enriquece a query com palavras-chave selecionadas pra busca ser mais
       // temática e não trazer páginas genéricas da Localiza sem relação com o assunto.
       const selectedKws = draft.keywords
-        .filter((k) => draft.keywordSelected?.[k.toLowerCase()] !== false)
+        .filter((k) => { const kstr = typeof k === 'object' ? k.kw : k; return draft.keywordSelected?.[kstr.toLowerCase()] !== false; })
         .slice(0, 3)
         .join(" ");
       const queryBase = selectedKws ? `${baseTexto} ${selectedKws}` : baseTexto;
@@ -3678,7 +3678,7 @@ data-onboard="generate-btn"
                         try {
                           const { text } = await callAI({
                             system: "Você é especialista em SEO para YouTube. Crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
-                            prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => draft.keywordSelected?.[k.toLowerCase()] !== false).join(", ")}\n\nCrie o título:`,
+                            prompt: `Tópico: ${draft.topic || draft.existingCaption}\nKeywords: ${(draft.keywords || []).filter(k => { const kstr = typeof k === 'object' ? k.kw : k; return draft.keywordSelected?.[kstr.toLowerCase()] !== false; }).map(k => typeof k === 'object' ? k.kw : k).join(", ")}\n\nCrie o título:`,
                             useSearch: false,
                           });
                           const titulo = text.trim().slice(0, 100);
@@ -3774,7 +3774,7 @@ data-onboard="generate-btn"
                                       system: "Você é especialista em SEO para YouTube. Otimize ou crie um título de até 70 caracteres com a keyword principal no início, clicável sem ser clickbait. Responda SOMENTE com o título, sem aspas, sem explicação.",
                                       prompt: `Tópico/legenda: ${r.legenda}
 Título atual: ${currentTitle || "nenhum"}
-Keywords: ${(draft.keywords || []).join(", ")}
+Keywords: ${(draft.keywords || []).map(k => typeof k === 'object' ? k.kw : k).join(", ")}
 
 Crie/otimize o título:`,
                                       useSearch: false,
