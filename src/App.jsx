@@ -240,17 +240,7 @@ function renderLegenda(text) {
 
 
 // ---- TEMA ESCURO ----
-const DARK = {
-  BG: "#141E17",          // fundo geral: verde escuro suave, não preto puro
-  TEXT: "#DFF0E3",        // texto principal: off-white esverdeado, não branco puro
-  MUTED: "#7FA885",       // texto secundário: verde acinzentado
-  BORDER: "#263B2A",      // bordas: verde muito escuro
-  CARD: "#1C2E20",        // cards e painéis
-  INPUT: "#1A2B1E",       // inputs
-  SURFACE: "#1F3324",     // superfícies levemente mais claras que BG
-  HIGHLIGHT: "#2A4A30",   // hover states, selecionados
-  LIME_DARK: "#5AB518",   // lime adaptado pro dark (menos saturado)
-};
+
 
 function useTheme() {
   const [dark, setDark] = React.useState(() => {
@@ -258,6 +248,11 @@ function useTheme() {
     if (saved) return saved === "dark";
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
+
+  React.useEffect(() => {
+    // Aplica/remove classe "dark" no <html> — o CSS cuida do resto
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   React.useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -361,7 +356,101 @@ const GlobalStyle = () => (
     .ls-bu-row:hover { background: rgba(255,255,255,0.05); }
     .ls-bu-number { transition: color .15s ease, transform .15s ease; }
     .ls-bu-row:hover .ls-bu-number { color: ${LIME} !important; transform: translateX(3px); }
+    .ls-card:hover { box-shadow: 0 6px 20px rgba(16,36,22,0.07); }
+    .ls-btn-primary { transition: transform .12s ease, box-shadow .15s ease, opacity .15s ease; box-shadow: 0 4px 14px rgba(120,222,31,0.35); }
+    .ls-btn-primary:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(120,222,31,0.45); transform: translateY(-1px); }
+    .ls-btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .ls-btn-ghost { transition: background .15s ease, border-color .15s ease, color .15s ease; }
+    .ls-btn-ghost:hover:not(:disabled) { border-color: ${GREEN}; color: ${GREEN}; }
+    .ls-nav-item { position: relative; transition: background .15s ease, color .15s ease; }
+    .ls-nav-item.active { background: rgba(255,255,255,0.97); color: ${GREEN_DARK}; }
+    .ls-nav-item.active::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: ${LIME}; }
+    .ls-nav-item:not(.active):hover { background: rgba(255,255,255,0.10); }
+    .ls-chip-x { transition: opacity .12s ease, background .12s ease; }
+    .ls-chip-x:hover { opacity: 0.6; }
+    .ls-toggle { transition: background .15s ease, border-color .15s ease, color .15s ease; }
+    .ls-platform-btn { transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease; }
+    .ls-side-link { transition: color .12s ease, opacity .12s ease; }
+    .ls-side-link:hover { opacity: 0.85; }
+    .ls-preset-item { transition: background .15s ease, border-color .15s ease; }
+    .ls-preset-item:hover { background: ${LIME_SOFT}; }
+    .ls-preset-item.active { background: ${LIME_SOFT}; border-color: ${LIME} !important; }
+    .ls-trash { transition: opacity .12s ease; opacity: 0; }
+    .ls-preset-item:hover .ls-trash { opacity: 0.6; }
+    .ls-trash:hover { opacity: 1 !important; }
+    .ls-bu-row { transition: background .15s ease; }
+    .ls-bu-row:hover { background: rgba(255,255,255,0.05); }
+    .ls-bu-number { transition: color .15s ease, transform .15s ease; }
+    .ls-bu-row:hover .ls-bu-number { color: ${LIME} !important; transform: translateX(3px); }
     .ls-mode-tab { transition: background .15s ease, color .15s ease; }
+
+    /* ============ DARK MODE ============ */
+    /* Paleta: fundo slate-esverdeado profundo, texto quase-branco suave */
+    :root { --dk-bg: #1a2420; --dk-surface: #212e29; --dk-card: #283530; --dk-border: #35473f; --dk-text: #ddeee4; --dk-muted: #8aab96; --dk-input: #1e2d28; --dk-lime: #78DE1F; --dk-green: #4ade80; }
+
+    /* Fundo geral */
+    html.dark body,
+    html.dark [style*="background: rgb(246"] { background: var(--dk-bg) !important; }
+
+    /* Textos */
+    html.dark, html.dark p, html.dark span, html.dark div, html.dark h1, html.dark h2, html.dark h3, html.dark label { color: var(--dk-text); }
+
+    /* Cards e painéis brancos */
+    html.dark .bg-white,
+    html.dark [style*="background: rgb(255, 255, 255)"],
+    html.dark [style*="background: #FFFFFF"],
+    html.dark [style*='background: "#FFFFFF"'] { background: var(--dk-card) !important; }
+
+    /* Inputs e textareas */
+    html.dark input, html.dark textarea, html.dark select {
+      background: var(--dk-input) !important;
+      color: var(--dk-text) !important;
+      border-color: var(--dk-border) !important;
+    }
+    html.dark input::placeholder, html.dark textarea::placeholder { color: var(--dk-muted) !important; }
+
+    /* Bordas */
+    html.dark [style*="borderColor: #E1E8E2"],
+    html.dark [class*="border-"] { border-color: var(--dk-border); }
+
+    /* Header sticky */
+    html.dark .sticky.bg-white,
+    html.dark .sticky { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
+
+    /* Dropdown notificações */
+    html.dark [class*="absolute"][class*="bg-white"],
+    html.dark [class*="absolute"][class*="shadow"] { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
+
+    /* Cor de texto secundário */
+    html.dark [style*="color: #5B6B60"],
+    html.dark [style*="color: rgb(91"] { color: var(--dk-muted) !important; }
+
+    /* Preset items hover */
+    html.dark .ls-preset-item:hover { background: var(--dk-surface) !important; }
+    html.dark .ls-preset-item.active { background: rgba(120,222,31,0.12) !important; border-color: #78DE1F !important; }
+
+    /* Hover em botões ghost */
+    html.dark .ls-btn-ghost:hover { border-color: var(--dk-green) !important; color: var(--dk-green) !important; }
+
+    /* Superfícies levemente elevadas */
+    html.dark [style*="background: #F6F9F6"],
+    html.dark [style*="background: #FAFAFA"],
+    html.dark [style*="background: #F3F4F6"],
+    html.dark [style*="background: #EAF9DC"] { background: var(--dk-surface) !important; }
+
+    /* Nav item ativo no dark */
+    html.dark .ls-nav-item.active { background: rgba(255,255,255,0.10) !important; color: #fff !important; }
+
+    /* Modais */
+    html.dark [class*="rounded-2xl"][class*="shadow-2xl"] { background: var(--dk-card) !important; }
+
+    /* Scrollbar dark */
+    html.dark * { scrollbar-color: var(--dk-border) transparent; }
+
+    /* Transição suave ao trocar tema */
+    * { transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease; }
+    /* Exceto imagens e SVGs */
+    img, svg * { transition: none !important; }
   `}</style>
 );
 
@@ -582,14 +671,8 @@ export default function App() {
 
   // Tema
   const { dark, toggle: toggleDark } = useTheme();
-  const T = dark ? DARK : {
-    BG, TEXT, MUTED, BORDER,
-    CARD: "#FFFFFF",
-    INPUT: "#FFFFFF",
-    SURFACE: "#F6F9F6",
-    HIGHLIGHT: "#EAF9DC",
-    LIME_DARK: LIME,
-  };
+  // T é um alias inerte no modo claro — no dark, CSS vars cuidam de tudo
+  const T = { BG, TEXT, MUTED, BORDER, CARD: "#FFFFFF", INPUT: "#FFFFFF", SURFACE: "#F6F9F6", HIGHLIGHT: "#EAF9DC", LIME_DARK: LIME };
 
   // Onboarding
   const [onboardStep, setOnboardStep] = useState(-1); // inicia desligado, ativa ao entrar na primeira BU
