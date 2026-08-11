@@ -246,31 +246,31 @@ const ONBOARDING_STEPS = [
   {
     id: "welcome",
     title: "Bem-vinda ao Social Studio! 👋",
-    desc: "Você está dentro de uma BU. O tour vai te guiar pelos 5 passos principais da ferramenta, com foco em cada elemento. Clique em Próximo para começar.",
+    desc: "Essa ferramenta gera legendas otimizadas para as redes sociais da Localiza. O tour vai mostrar os 5 passos principais em menos de 2 minutos. Clique em Próximo para começar.",
     target: null,
     position: "center",
     autoAdvance: null,
   },
   {
     id: "style",
-    title: "1. Configure o estilo da marca",
-    desc: "Antes de gerar legendas, defina o estilo da BU: regras, tom de voz e vocabulário. Clique em 'Estilo geral da marca' no menu ao lado para começar.",
+    title: "1. Estilo geral da marca",
+    desc: "Antes de gerar legendas, configure o estilo da BU com regras, tom de voz e vocabulário. Quanto mais completo, melhor a legenda. Clique no botão destacado para abrir.",
     target: "[data-onboard='style-btn']",
     position: "right",
     autoAdvance: "page:style",
   },
   {
     id: "compose",
-    title: "2. Descreva o tópico do post",
-    desc: "Aqui você descreve o assunto do post, sugere palavras-chave e ajusta todas as opções. Clique em 'Nova legenda' no menu para ir para essa tela.",
+    title: "2. Nova legenda",
+    desc: "Aqui você cria as legendas. Clique no botão destacado para ir para a tela de criação.",
     target: "[data-onboard='compose-btn']",
     position: "right",
     autoAdvance: "page:compose",
   },
   {
     id: "topic",
-    title: "3. Preencha o tópico",
-    desc: "Digite o assunto do post neste campo. Pode incluir contexto, links ou referências. Quanto mais específico, melhor a legenda gerada.",
+    title: "3. Descreva o tópico",
+    desc: "Escreva aqui o assunto do post com o máximo de contexto possível. Quanto mais específico, melhor a legenda. Ex: 'vídeo mostrando retirada sem burocracia no app'.",
     target: "[data-onboard='topic-input']",
     position: "bottom",
     autoAdvance: null,
@@ -278,15 +278,15 @@ const ONBOARDING_STEPS = [
   {
     id: "generate",
     title: "4. Gere a legenda",
-    desc: "Clique em 'Criar legenda' para gerar. O resultado vem com notas de SEO, Tom e Originalidade. Você pode editar, usar o Preview e gerar novamente.",
+    desc: "Com o tópico preenchido, clique aqui para gerar. Você pode usar Cmd+Enter (Mac) ou Ctrl+Enter (Windows) como atalho. O resultado vem com score de SEO, Tom e Originalidade.",
     target: "[data-onboard='generate-btn']",
     position: "top",
     autoAdvance: null,
   },
   {
     id: "library",
-    title: "5. Biblioteca e calendário",
-    desc: "Tudo que você salvar aparece aqui. Use o calendário pra visualizar os posts por data e os filtros pra encontrar rapidinho. Legendas destacadas (⭐) viram referência automática.",
+    title: "5. Legendas salvas",
+    desc: "Tudo que você salvar fica aqui. Use os filtros, a busca e o calendário editorial para organizar. Legendas destacadas (⭐) viram referência automática para as próximas gerações.",
     target: "[data-onboard='library-btn']",
     position: "right",
     autoAdvance: "page:library",
@@ -3039,6 +3039,7 @@ data-onboard="library-btn"
                   <div className="mb-5">
                     <Field label="Tópico do post">
                       <textarea
+                        data-onboard="topic-input"
                         value={draft.topic}
                         onChange={(e) => setDraft((d) => ({ ...d, topic: e.target.value }))}
                         onBlur={handleTopicBlur}
@@ -3731,7 +3732,7 @@ Crie/otimize o título:`,
     )}
 
     {/* Onboarding spotlight */}
-    {onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (
+    {screen === "workspace" && onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (
       <OnboardingSpotlight
         step={ONBOARDING_STEPS[onboardStep]}
         stepIndex={onboardStep}
