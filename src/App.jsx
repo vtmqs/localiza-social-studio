@@ -33,6 +33,7 @@ import {
   List,
   Upload,
   Menu,
+  Building2,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -121,6 +122,9 @@ function emptyDraft(presetId) {
     keywordInput: "",
     keywordSelected: {},
     relatedContent: [],
+    relatedMode: "incluir", // "incluir" | "basear"
+    citarLocaliza: false,
+    pessoaLocaliza: "3", // "1" | "2" | "3"
     useEmojis: true,
     useHashtags: true,
     useBullets: false,
@@ -179,11 +183,12 @@ function platformNotesFor(length) {
 
 function sanitizeDashes(text) {
   if (typeof text !== "string") return text;
-  // Converte qualquer forma de \n literal em quebra real
   let t = text;
-  // Se vier como \n (dois chars: backslash + n)
-  if (t.includes("\\n")) t = t.replace(/\\n/g, "\n");
-  // Se vier como a sequência literal barra-n que sobreviveu ao JSON parse
+  // Converte variantes de quebra de linha
+  t = t.replace(/<br\s*\/?>/gi, "\n"); // <br> → 
+
+  t = t.replace(/\\n/g, "\n");          // \n literal → 
+
   t = t
     .replace(/\s*[—–]\s*/g, ", ")
     .replace(/,\s*,/g, ",")
@@ -889,13 +894,21 @@ export default function App() {
   };
 
   function buildSharedContext() {
-    const selectedKeywords = draft.keywords.filter((k) => draft.keywordSelected?.[k.toLowerCase()] !== false);
+    const selectedKeywords = draft.keywords.filter((k) => {
+      const kw = typeof k === "object" ? k.kw : k;
+      return draft.keywordSelected?.[kw.toLowerCase()] !== false;
+    }).map(k => typeof k === "object" ? k.kw : k);
 
     const selectedRelated = (draft.relatedContent || []).filter((r) => r.selected);
-    const urls = selectedRelated.map((r) => r.url).filter(Boolean);
+    const relatedParaIncluir = selectedRelated.filter(r => (r.mode || "incluir") === "incluir");
+    const relatedParaBasear = selectedRelated.filter(r => r.mode === "basear");
+    const urls = relatedParaIncluir.map((r) => r.url).filter(Boolean);
     const relatedText =
       selectedRelated.length > 0
-        ? selectedRelated.map((r) => `${r.rede}: "${r.titulo}", URL: ${r.url} (${r.dica || "sem dica"})`).join("; ")
+        ? [
+            relatedParaIncluir.length > 0 ? `INCLUIR LINK: ${relatedParaIncluir.map((r) => `${r.rede}: "${r.titulo}", URL: ${r.url}`).join("; ")}` : "",
+            relatedParaBasear.length > 0 ? `USAR COMO INSPIRAÇÃO DE TEMA E TOM (não citar diretamente): ${relatedParaBasear.map((r) => `${r.rede}: "${r.titulo}"`).join("; ")}` : "",
+          ].filter(Boolean).join(" | ")
         : "nenhum selecionado pelo time";
 
     const p = activeGenPreset || BLANK_PRESET;
@@ -927,7 +940,11 @@ export default function App() {
         ? `Se houver URL pra incluir, coloque-a SEMPRE no final do texto, depois de toda a mensagem e antes das hashtags, assim: "Confira em: ${urls[0]}" ou "Saiba mais: ${urls[0]}". Nunca escreva "link na bio" nem mencione a URL no meio do texto. URLs a incluir: ${urls.join(", ")}.`
         : "Nenhuma URL selecionada para incluir.";
 
-    return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, bulletsInstr, urlInstr };
+    const citarInstr = draft.citarLocaliza
+      ? `OBRIGATÓRIO: mencione a Localiza explicitamente na legenda. Use a ${draft.pessoaLocaliza === "1" ? "1ª pessoa do plural (Somos, Oferecemos, Nosso, Nossa, Nós da Localiza)" : draft.pessoaLocaliza === "2" ? "2ª pessoa (Você, Sua, Com a Localiza você)" : "3ª pessoa (A Localiza, Ela oferece)"}.`
+      : "";
+
+    return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, bulletsInstr, urlInstr, citarInstr };
   }
 
   const generateCaptions = async () => {
@@ -1134,8 +1151,8 @@ Avalie "seoScore" e "toneScore".`;
       };
       const current = library[activeBU] || [];
       const updated = [entry, ...current];
-      await storage.set(`captions:${activeBU}`, JSON.stringify(updated));
       setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
+      storage.set(`captions:${activeBU}`, JSON.stringify(updated));
       setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
       setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
     } catch (e) {
@@ -2074,7 +2091,7 @@ Avalie "seoScore" e "toneScore".`;
                   Criar legenda
                 </button>
                 <button
-                  onClick={() => setDraft((d) => ({ ...d, mode: "otimizar" }))}
+                  onClick={() => setDraft((d) => ({ ...d, mode: "otimizar", existingCaption: "", keywords: [], keywordSelected: {} }))}
                   className="ls-mode-tab flex-1 flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg py-2.5 border"
                   style={draft.mode === "otimizar" ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                 >
@@ -2190,12 +2207,23 @@ Avalie "seoScore" e "toneScore".`;
                             <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "#FFFFFF", color: GREEN_DARK }}>
                               {item.rede}
                             </span>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                               {item.url && (
                                 <a href={item.url} target="_blank" rel="noreferrer" className="ls-side-link flex items-center gap-1 text-xs" style={{ color: GREEN }}>
                                   Abrir
                                   <ExternalLink size={11} />
                                 </a>
+                              )}
+                              {item.selected && (
+                                <select
+                                  value={item.mode || draft.relatedMode || "incluir"}
+                                  onChange={(e) => setDraft((d) => ({ ...d, relatedContent: d.relatedContent.map((rc, ri) => ri === i ? { ...rc, mode: e.target.value } : rc) }))}
+                                  className="text-[10px] border rounded px-1 py-0.5"
+                                  style={{ borderColor: BORDER, color: MUTED }}
+                                >
+                                  <option value="incluir">Incluir link</option>
+                                  <option value="basear">Usar como base</option>
+                                </select>
                               )}
                               <button
                                 onClick={() => toggleRelatedSelected(i)}
@@ -2203,7 +2231,7 @@ Avalie "seoScore" e "toneScore".`;
                                 style={item.selected ? { background: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", color: MUTED, border: `1px solid ${BORDER}` }}
                               >
                                 {item.selected && <Check size={11} />}
-                                {item.selected ? "Incluído na legenda" : "Incluir na legenda"}
+                                {item.selected ? "Selecionado" : "Selecionar"}
                               </button>
                             </div>
                           </div>
@@ -2305,7 +2333,27 @@ Avalie "seoScore" e "toneScore".`;
                     <List size={15} style={{ color: MUTED }} />
                     Incluir bullets
                   </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: TEXT }}>
+                    <input type="checkbox" checked={draft.citarLocaliza} onChange={(e) => setDraft((d) => ({ ...d, citarLocaliza: e.target.checked }))} />
+                    <Building2 size={15} style={{ color: MUTED }} />
+                    Citar Localiza
+                  </label>
                 </div>
+                {draft.citarLocaliza && (
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className="text-xs" style={{ color: MUTED }}>Pessoa gramatical:</span>
+                    {[["1", "1ª pessoa (Somos, Oferecemos)"], ["2", "2ª pessoa (Você, Sua)"], ["3", "3ª pessoa (A Localiza, Ela)"]].map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setDraft((d) => ({ ...d, pessoaLocaliza: val }))}
+                        className="text-xs px-2 py-1 rounded border"
+                        style={draft.pessoaLocaliza === val ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: "#FFF", color: MUTED, borderColor: BORDER }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {draft.useHashtags && (
                   <p className="text-[11px] mb-5" style={{ color: MUTED }}>
                     A ferramenta decide a quantidade ideal (até no máximo 5), sem número fixo, varia por post e rede.
@@ -2319,12 +2367,21 @@ Avalie "seoScore" e "toneScore".`;
                     Palavras-chave recomendadas
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {draft.keywords.map((kw) => {
+                    {draft.keywords.map((kwObj) => {
+                      const kw = typeof kwObj === "object" ? kwObj.kw : kwObj;
+                      const quality = typeof kwObj === "object" ? kwObj.quality : "good";
+                      const qualityColor = quality === "good" ? "#166534" : quality === "medium" ? "#92400E" : "#7F1D1D";
+                      const qualityBg = quality === "good" ? "#DCFCE7" : quality === "medium" ? "#FEF3C7" : "#FEE2E2";
+                      const qualityBorder = quality === "good" ? "#86EFAC" : quality === "medium" ? "#FCD34D" : "#FCA5A5";
                       const selected = draft.keywordSelected?.[kw.toLowerCase()] !== false;
                       return (
                         <span
                           key={kw}
-                          style={{ background: selected ? LIME_SOFT : "#FFFFFF", borderColor: selected ? LIME : BORDER, color: selected ? GREEN_DARK : MUTED }}
+                          style={{
+                            background: selected ? LIME_SOFT : qualityBg,
+                            borderColor: selected ? LIME : qualityBorder,
+                            color: selected ? GREEN_DARK : qualityColor,
+                          }}
                           className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-medium"
                         >
                           <button
