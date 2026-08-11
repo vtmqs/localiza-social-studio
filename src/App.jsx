@@ -524,9 +524,9 @@ export default function App() {
     const sync = async () => {
       try {
         const [pubData, privData] = await Promise.all([
-          storageAPI({ action: "listPublicPresets", bu: buId }),
+          storageAPI({ action: "listPublicPresets", bu: buId }).catch(() => ({ presets: [] })),
           currentUser?.hash
-            ? storageAPI({ action: "listPrivatePresets", bu: buId, userHash: currentUser.hash })
+            ? storageAPI({ action: "listPrivatePresets", bu: buId, userHash: currentUser.hash }).catch(() => ({ presets: [] }))
             : Promise.resolve({ presets: [] }),
         ]);
         const all = [
@@ -540,16 +540,20 @@ export default function App() {
     sync();
   }, [currentUser]);
 
-  const loadLibrary = useCallback(async (buId) => {
+  const loadLibrary = useCallback((buId) => {
+    // Carrega do cache local primeiro (instantâneo)
     try {
-      const result = await storage.get(`captions:${buId}`);
-      const parsed = result ? JSON.parse(result) : [];
-      setLibrary((prev) => ({ ...prev, [buId]: Array.isArray(parsed) ? parsed : [] }));
-    } catch (e) {
-      setLibrary((prev) => ({ ...prev, [buId]: [] }));
-    } finally {
-      setLibraryLoaded((prev) => ({ ...prev, [buId]: true }));
-    }
+      const cached = localStorage.getItem(`captions-cache:${buId}`);
+      if (cached) setLibrary((prev) => ({ ...prev, [buId]: JSON.parse(cached) }));
+    } catch {}
+    setLibraryLoaded((prev) => ({ ...prev, [buId]: true }));
+    // Sincroniza com Sheets em background
+    storageAPI({ action: "listCaptions", bu: buId, requesterHash: null, requesterRole: "user" })
+      .then(data => {
+        const list = data.captions || [];
+        setLibrary((prev) => ({ ...prev, [buId]: list }));
+        localStorage.setItem(`captions-cache:${buId}`, JSON.stringify(list));
+      }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1594,8 +1598,8 @@ Avalie "seoScore" e "toneScore".`;
           )}
           <button
             onClick={async () => {
-              await storage.set("current-user", "");
-              await storage.set("app-unlocked", "");
+              storage.set("current-user", "");
+              storage.set("app-unlocked", "");
               setCurrentUser(null);
               setUnlocked(false);
               setShowRegister(false);
@@ -2312,7 +2316,7 @@ Avalie "seoScore" e "toneScore".`;
                               style={c.visibility === "public"
                                 ? { background: "#EAF9DC", color: GREEN_DARK, borderColor: LIME }
                                 : { background: "#F6F9F6", color: MUTED, borderColor: BORDER }}
-                              title={c.visibility === "public" ? "Pública — clique pra tornar privada" : "Privada — clique pra tornar pública"}
+                              title={c.visibility === "public" ? "Pública: clique pra tornar privada" : "Privada: clique pra tornar pública"}
                             >
                               {c.visibility === "public" ? "Pública" : "Privada"}
                             </button>
@@ -3006,7 +3010,7 @@ Crie/otimize o título:`,
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
         <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
           <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Data de publicação</p>
-          <p className="text-sm mb-4" style={{ color: MUTED }}>Opcional — ajuda a organizar o calendário editorial.</p>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>Opcional, ajuda a organizar o calendário editorial.</p>
           <input
             type="date"
             value={publishDateInput}

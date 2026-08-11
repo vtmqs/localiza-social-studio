@@ -40,7 +40,7 @@ async function sheetsClear(token, range) {
 
 async function getAllPresets(token) {
   const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
-  return rows.map((r, i) => ({ id: r[0] || "", bu: r[1] || "", visibility: r[2] || "public", userHash: r[3] || "", preset: r[4] ? JSON.parse(r[4]) : {}, rowIndex: i + 2 }));
+  return rows.map((r, i) => ({ id: r[0] || "", bu: r[1] || "", visibility: r[2] || "public", userHash: r[3] || "", preset: r[4] ? (() => { try { return JSON.parse(r[4]); } catch { return {}; } })() : {}, rowIndex: i + 2 }));
 }
 
 async function getAllUsers(token) {
@@ -198,13 +198,13 @@ export default async function handler(req, res) {
         })
         .map(r => ({
           id: r[0], bu: r[1], platform: r[2], legenda: r[3],
-          hashtags: r[4] ? JSON.parse(r[4]) : [],
+          hashtags: r[4] ? (() => { try { return JSON.parse(r[4]); } catch { return []; } })() : [],
           topico: r[5], presetTitle: r[6],
           seoScore: Number(r[7]) || 0, toneScore: Number(r[8]) || 0,
           destaque: r[9] === "true", visibility: r[10] || "private",
           savedBy: r[11], savedAt: r[12], publishDate: r[13] || "",
           userHash: r[14] || "",
-          versions: r[15] ? JSON.parse(r[15]) : [],
+          versions: r[15] ? (() => { try { return JSON.parse(r[15]); } catch { return []; } })() : [],
         }));
       res.status(200).json({ captions });
       return;
