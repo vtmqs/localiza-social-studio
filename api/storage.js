@@ -124,12 +124,19 @@ export default async function handler(req, res) {
     }
 
     if (action === "savePreset") {
-      const { preset, visibility } = req.body;
+      const { preset, visibility, userName } = req.body;
       const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
       const rowIdx = rows.findIndex((r) => r[0] === preset.id);
+      const isNew = rowIdx < 0;
       const row = [preset.id, bu, visibility, userHash || "", JSON.stringify(preset)];
       if (rowIdx >= 0) await sheetsUpdate(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`, [row]);
       else await sheetsAppend(token, [row]);
+      // Registrar atividade pública
+      if (visibility === "public") {
+        const id = `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+        const desc = isNew ? `Criou o estilo "${preset.title}"` : `Atualizou o estilo "${preset.title}"`;
+        await sheetsAppend(token, [[id, "preset", bu, userName || "Anônimo", desc, new Date().toISOString()]], "Activity");
+      }
       res.status(200).json({ ok: true });
       return;
     }
@@ -157,6 +164,25 @@ export default async function handler(req, res) {
       const rowIdx = rows.findIndex((r) => r[0] === presetId);
       if (rowIdx >= 0) await sheetsClear(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`);
       res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === "logActivity") {
+      const { type, bu: actBu, userName, description } = req.body;
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2,6)}`;
+      await sheetsAppend(token, [[id, type, actBu || "", userName || "Anônimo", description || "", new Date().toISOString()]], "Activity");
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === "listActivity") {
+      const rows = await sheetsGet(token, "Activity!A2:F");
+      const activities = rows
+        .filter(r => r[0] && (!bu || r[2] === bu))
+        .map(r => ({ id: r[0], type: r[1], bu: r[2], userName: r[3], description: r[4], createdAt: r[5] }))
+        .reverse()
+        .slice(0, 50);
+      res.status(200).json({ activities });
       return;
     }
 

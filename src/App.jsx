@@ -35,6 +35,7 @@ import {
   Menu,
   Building2,
   Shield,
+  Bell,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -450,6 +451,9 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminPresets, setAdminPresets] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifSeen, setNotifSeen] = useState(() => { try { return JSON.parse(localStorage.getItem("notif-seen") || "{}"); } catch { return {}; } });
   const [pendingLegenda, setPendingLegenda] = useState(null); // legenda gerada antes de trocar
   const [showSaved, setShowSaved] = useState(false);
 
@@ -528,6 +532,11 @@ export default function App() {
 
   useEffect(() => {
     if (activeBU && !presetsLoaded[activeBU]) loadPresets(activeBU);
+    if (activeBU) {
+      storageAPI({ action: "listActivity", bu: activeBU })
+        .then(d => setNotifications(d.activities || []))
+        .catch(() => {});
+    }
     if (activeBU && !libraryLoaded[activeBU]) loadLibrary(activeBU);
   }, [activeBU, presetsLoaded, libraryLoaded, loadPresets, loadLibrary]);
 
@@ -1160,6 +1169,10 @@ Avalie "seoScore" e "toneScore".`;
       const updated = [entry, ...current];
       setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
       storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+      // Registra atividade se legenda for pública
+      if (entry.visibility === "public") {
+        storageAPI({ action: "logActivity", bu: activeBU, userName: currentUser?.name || "Anônimo", description: `Salvou uma legenda de ${platformId} sobre "${entry.topico?.slice(0, 50)}"`, type: "caption" }).catch(() => {});
+      }
       setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
       setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
     } catch (e) {
@@ -1564,12 +1577,73 @@ Avalie "seoScore" e "toneScore".`;
 
       <main className="flex-1 overflow-y-auto">
         <div className="sticky top-0 z-10 bg-white border-b px-4 sm:px-8 py-4" style={{ borderColor: BORDER }}>
-          <p className="text-[11px] font-medium tracking-wide" style={{ color: MUTED }}>
-            {bu.label}
-          </p>
-          <h2 className="text-lg font-semibold">
-            {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : "Legendas salvas"}
-          </h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-medium tracking-wide" style={{ color: MUTED }}>{bu.label}</p>
+              <h2 className="text-lg font-semibold">
+                {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : "Legendas salvas"}
+              </h2>
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setNotifOpen(o => !o);
+                  if (!notifOpen) {
+                    // Marca todos como vistos
+                    const seen = {};
+                    notifications.forEach(n => seen[n.id] = true);
+                    setNotifSeen(seen);
+                    localStorage.setItem("notif-seen", JSON.stringify(seen));
+                  }
+                }}
+                className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <Bell size={18} style={{ color: MUTED }} />
+                {notifications.filter(n => !notifSeen[n.id]).length > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: "#EF4444" }}>
+                    {Math.min(notifications.filter(n => !notifSeen[n.id]).length, 9)}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: BORDER }}>
+                  <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
+                    <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>Atividade em {bu.label}</p>
+                    <button onClick={() => setNotifOpen(false)}>
+                      <X size={14} style={{ color: MUTED }} />
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <p className="text-sm px-4 py-6 text-center" style={{ color: MUTED }}>Nenhuma atividade ainda.</p>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className="px-4 py-3 border-b hover:bg-gray-50" style={{ borderColor: BORDER, background: notifSeen[n.id] ? "#FFF" : "#F0FFF4" }}>
+                          <p className="text-xs font-semibold" style={{ color: GREEN_DARK }}>{n.userName}</p>
+                          <p className="text-xs mt-0.5" style={{ color: TEXT }}>{n.description}</p>
+                          <p className="text-[10px] mt-1" style={{ color: MUTED }}>
+                            {new Date(n.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      storageAPI({ action: "listActivity", bu: activeBU })
+                        .then(d => setNotifications(d.activities || []))
+                        .catch(() => {});
+                    }}
+                    className="w-full py-2 text-xs text-center hover:bg-gray-50 transition-colors"
+                    style={{ color: MUTED }}
+                  >
+                    Atualizar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
