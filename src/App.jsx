@@ -278,35 +278,52 @@ function useTheme() {
 
 const ONBOARDING_STEPS = [
   {
+    id: "welcome",
     title: "Bem-vinda ao Social Studio! 👋",
-    desc: "Aqui você gera legendas otimizadas para as redes sociais da Localiza em segundos. Vou te mostrar como funciona em 5 passos rápidos.",
-    img: null,
+    desc: "Você está dentro de uma BU. O tour vai te guiar pelos 5 passos principais da ferramenta, com foco em cada elemento. Clique em Próximo para começar.",
     target: null,
+    position: "center",
+    autoAdvance: null,
   },
   {
-    title: "1. Escolha a BU",
-    desc: "Cada BU tem seu próprio espaço: RAC Brasil, Zarp, Assinatura, Caminhões e Seminovos. Comece clicando na BU do post que vai criar.",
-    target: "bu-list",
+    id: "style",
+    title: "1. Configure o estilo da marca",
+    desc: "Antes de gerar legendas, defina o estilo da BU: regras, tom de voz e vocabulário. Clique em 'Estilo geral da marca' no menu ao lado para começar.",
+    target: "[data-onboard='style-btn']",
+    position: "right",
+    autoAdvance: "page:style",
   },
   {
-    title: "2. Configure o estilo da marca",
-    desc: "Em 'Estilo geral da marca', defina as regras, tom de voz e vocabulário da BU. Quanto mais rico o estilo, melhor a legenda. Só precisa fazer isso uma vez — fica salvo pra todo o time.",
-    target: "side-style",
+    id: "compose",
+    title: "2. Descreva o tópico do post",
+    desc: "Aqui você descreve o assunto do post, sugere palavras-chave e ajusta todas as opções. Clique em 'Nova legenda' no menu para ir para essa tela.",
+    target: "[data-onboard='compose-btn']",
+    position: "right",
+    autoAdvance: "page:compose",
   },
   {
-    title: "3. Preencha o tópico e as opções",
-    desc: "Descreva o assunto do post, sugira palavras-chave, escolha o tamanho, tom e redes. Você também pode buscar conteúdo relacionado publicado pela Localiza pra usar como referência ou link.",
-    target: "compose-area",
+    id: "topic",
+    title: "3. Preencha o tópico",
+    desc: "Digite o assunto do post neste campo. Pode incluir contexto, links ou referências. Quanto mais específico, melhor a legenda gerada.",
+    target: "[data-onboard='topic-input']",
+    position: "bottom",
+    autoAdvance: null,
   },
   {
-    title: "4. Gere, revise e salve",
-    desc: "Clique em 'Criar legenda'. O resultado aparece com notas de SEO e Tom. Edite se quiser, clique em 'Preview' pra ver como vai ficar no feed, e salve com a data de publicação.",
-    target: "generate-btn",
+    id: "generate",
+    title: "4. Gere a legenda",
+    desc: "Clique em 'Criar legenda' para gerar. O resultado vem com notas de SEO, Tom e Originalidade. Você pode editar, usar o Preview e gerar novamente.",
+    target: "[data-onboard='generate-btn']",
+    position: "top",
+    autoAdvance: null,
   },
   {
+    id: "library",
     title: "5. Biblioteca e calendário",
-    desc: "Tudo que você salvar fica em 'Legendas salvas'. No calendário você visualiza os posts agendados por dia. Legendas destacadas (⭐) viram referência automática pras próximas gerações.",
-    target: "side-library",
+    desc: "Tudo que você salvar aparece aqui. Use o calendário pra visualizar os posts por data e os filtros pra encontrar rapidinho. Legendas destacadas (⭐) viram referência automática.",
+    target: "[data-onboard='library-btn']",
+    position: "right",
+    autoAdvance: "page:library",
   },
 ];
 
@@ -537,6 +554,17 @@ export default function App() {
   });
   const [page, setPage] = useState("compose");
 
+  // Auto-avança onboarding quando a página muda pro target esperado
+  const setPageWithOnboard = (newPage) => {
+    setPage(newPage);
+    if (onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length) {
+      const step = ONBOARDING_STEPS[onboardStep];
+      if (step.autoAdvance === `page:${newPage}`) {
+        setTimeout(() => setOnboardStep(s => s + 1), 400);
+      }
+    }
+  };
+
   const [presets, setPresets] = useState({});
   const [presetsLoaded, setPresetsLoaded] = useState({});
   const [editingId, setEditingId] = useState(null);
@@ -554,9 +582,7 @@ export default function App() {
   const T = dark ? DARK : { BG, TEXT, MUTED, BORDER, CARD: "#FFFFFF", INPUT: "#FFFFFF" };
 
   // Onboarding
-  const [onboardStep, setOnboardStep] = useState(() => {
-    return localStorage.getItem("onboard-done") ? -1 : 0;
-  });
+  const [onboardStep, setOnboardStep] = useState(-1); // inicia desligado, ativa ao entrar na primeira BU
   const onboardDone = () => { localStorage.setItem("onboard-done", "1"); setOnboardStep(-1); };
 
   // Busca na biblioteca
@@ -692,6 +718,8 @@ export default function App() {
     setError("");
     setEditingId(null);
     try { window.history.replaceState(null, "", `?bu=${id}`); } catch {}
+    // Ativa onboarding na primeira vez
+    if (!localStorage.getItem("onboard-done")) setOnboardStep(0);
   };
 
   const switchBU = (id) => {
@@ -1638,7 +1666,8 @@ Avalie "seoScore" e "toneScore".`;
 
         <nav className="px-4 space-y-1">
           <button
-            onClick={() => { setPage("compose"); setMobileMenuOpen(false); }}
+            onClick={() => { setPageWithOnboard("compose"); setMobileMenuOpen(false); }}
+data-onboard="compose-btn"
             className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "compose" ? "active" : "text-white/85"}`}
           >
             <FileEdit size={15} />
@@ -1646,26 +1675,28 @@ Avalie "seoScore" e "toneScore".`;
           </button>
           <button
             onClick={() => {
-              setPage("style");
+              setPageWithOnboard("style");
               if (!editingId) {
                 if (buPresets.length > 0) selectPresetForEdit(buPresets[0]);
                 else startNewPreset();
               }
             }}
+data-onboard="style-btn"
             className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "style" ? "active" : "text-white/85"}`}
           >
             <Settings2 size={15} />
             Estilo geral da marca
           </button>
           <button
-            onClick={() => { setPage("presets-list"); setMobileMenuOpen(false); }}
+            onClick={() => { setPageWithOnboard("presets-list"); setMobileMenuOpen(false); }}
             className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "presets-list" ? "active" : "text-white/85"}`}
           >
             <Users size={15} />
             Estilos criados
           </button>
           <button
-            onClick={() => { setPage("library"); setMobileMenuOpen(false); }}
+            onClick={() => { setPageWithOnboard("library"); setMobileMenuOpen(false); }}
+data-onboard="library-btn"
             className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "library" ? "active" : "text-white/85"}`}
           >
             <Bookmark size={15} />
@@ -2879,6 +2910,7 @@ Avalie "seoScore" e "toneScore".`;
                 <button
                   onClick={draft.mode === "novo" ? generateCaptions : optimizeCaptions}
                   disabled={genLoading}
+data-onboard="generate-btn"
                   style={{ background: LIME, color: GREEN_DEEPER }}
                   className="ls-btn-primary w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 disabled:opacity-60"
                 >
@@ -3287,38 +3319,104 @@ Crie/otimize o título:`,
       </div>
     )}
 
-    {/* Onboarding */}
+    {/* Onboarding spotlight */}
     {onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (() => {
       const step = ONBOARDING_STEPS[onboardStep];
       const isLast = onboardStep === ONBOARDING_STEPS.length - 1;
+
+      // Calcula posição do elemento alvo para o spotlight
+      const [targetRect, setTargetRect] = React.useState(null);
+      React.useEffect(() => {
+        if (!step.target) { setTargetRect(null); return; }
+        const el = document.querySelector(step.target);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else { setTargetRect(null); }
+      }, [onboardStep]);
+
+      // Posição do popup relativa ao elemento
+      const popupStyle = (() => {
+        if (!targetRect || step.position === "center") return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+        const gap = 16;
+        if (step.position === "right") return { top: Math.max(8, targetRect.top), left: targetRect.left + targetRect.width + gap };
+        if (step.position === "bottom") return { top: targetRect.top + targetRect.height + gap, left: Math.max(8, targetRect.left - 20) };
+        if (step.position === "top") return { bottom: window.innerHeight - targetRect.top + gap, left: Math.max(8, targetRect.left - 20) };
+        return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+      })();
+
       return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.55)" }}>
-          <div className="bg-white rounded-2xl p-7 max-w-sm w-full shadow-2xl">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
-                {onboardStep + 1} de {ONBOARDING_STEPS.length}
+        <div className="fixed inset-0 z-[60]" style={{ pointerEvents: "none" }}>
+          {/* Overlay escuro com buraco no elemento alvo */}
+          <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: "all" }} onClick={(e) => e.stopPropagation()}>
+            <defs>
+              <mask id="spotlight-mask">
+                <rect width="100%" height="100%" fill="white" />
+                {targetRect && (
+                  <rect
+                    x={targetRect.left - 6}
+                    y={targetRect.top - 6}
+                    width={targetRect.width + 12}
+                    height={targetRect.height + 12}
+                    rx="8"
+                    fill="black"
+                  />
+                )}
+              </mask>
+            </defs>
+            <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#spotlight-mask)" />
+            {/* Borda brilhante ao redor do elemento alvo */}
+            {targetRect && (
+              <rect
+                x={targetRect.left - 6}
+                y={targetRect.top - 6}
+                width={targetRect.width + 12}
+                height={targetRect.height + 12}
+                rx="8"
+                fill="none"
+                stroke="#78DE1F"
+                strokeWidth="2"
+                strokeDasharray="6 3"
+              />
+            )}
+          </svg>
+
+          {/* Popup */}
+          <div
+            className="absolute bg-white rounded-2xl p-5 shadow-2xl"
+            style={{ ...popupStyle, width: 300, maxWidth: "calc(100vw - 32px)", zIndex: 70, pointerEvents: "all" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
+                {onboardStep + 1} / {ONBOARDING_STEPS.length}
               </span>
-              <button onClick={onboardDone} className="text-xs" style={{ color: MUTED }}>Pular tour</button>
+              <button onClick={onboardDone} className="text-[11px]" style={{ color: MUTED }}>Pular</button>
             </div>
-            <h3 className="text-lg font-bold mt-3 mb-2" style={{ color: GREEN_DARK }}>{step.title}</h3>
-            <p className="text-sm leading-relaxed mb-5" style={{ color: MUTED }}>{step.desc}</p>
+            <h3 className="text-sm font-bold mb-1.5" style={{ color: GREEN_DARK }}>{step.title}</h3>
+            <p className="text-xs leading-relaxed mb-4" style={{ color: MUTED }}>{step.desc}</p>
+            {step.autoAdvance ? (
+              <p className="text-[10px] italic mb-3" style={{ color: MUTED }}>
+                ↑ Clique no elemento destacado para avançar automaticamente
+              </p>
+            ) : null}
             <div className="flex gap-2">
               {onboardStep > 0 && (
-                <button onClick={() => setOnboardStep(s => s - 1)} className="px-4 py-2 rounded-lg border text-sm" style={{ borderColor: BORDER, color: MUTED }}>
-                  Voltar
+                <button onClick={() => setOnboardStep(s => s - 1)} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: BORDER, color: MUTED }}>
+                  ‹ Voltar
                 </button>
               )}
               <button
                 onClick={() => isLast ? onboardDone() : setOnboardStep(s => s + 1)}
-                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white"
+                className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white"
                 style={{ background: GREEN }}
               >
-                {isLast ? "Começar a usar!" : "Próximo →"}
+                {isLast ? "Começar!" : step.autoAdvance ? "Pular este passo →" : "Próximo →"}
               </button>
             </div>
-            <div className="flex justify-center gap-1.5 mt-4">
+            <div className="flex justify-center gap-1 mt-3">
               {ONBOARDING_STEPS.map((_, i) => (
-                <div key={i} className="w-1.5 h-1.5 rounded-full transition-all" style={{ background: i === onboardStep ? GREEN : BORDER }} />
+                <div key={i} onClick={() => setOnboardStep(i)} className="w-1.5 h-1.5 rounded-full cursor-pointer transition-all" style={{ background: i === onboardStep ? GREEN : BORDER }} />
               ))}
             </div>
           </div>
