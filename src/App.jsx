@@ -34,6 +34,7 @@ import {
   Upload,
   Menu,
   Building2,
+  Shield,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -337,6 +338,8 @@ function ScoreRing({ label, value }) {
 }
 
 const APP_PASSWORD = "conteudo2026localiza";
+const OWNER_EMAIL = "vitoriatmqs@gmail.com";
+const isAdminUser = (user) => user && (user.email === OWNER_EMAIL || user.role === "admin" || user.role === "owner");
 
 // Hash simples da senha pessoal (não é criptografia bancária, mas evita
 // guardar a senha em texto puro no servidor)
@@ -411,7 +414,7 @@ export default function App() {
     // Verifica no servidor se o usuário existe
     storageAPI({ action: "checkUser", userHash: hash }).then((data) => {
       if (data?.exists && data?.user) {
-        const user = { name: data.user.name, hash };
+        const user = { name: data.user.name, hash, email: regEmail.trim().toLowerCase(), role: data.user.role || "user" };
         setCurrentUser(user);
         storage.set("current-user", JSON.stringify(user));
         setShowRegister(false);
@@ -442,7 +445,11 @@ export default function App() {
   const [formPreset, setFormPreset] = useState(BLANK_PRESET);
   const [titleError, setTitleError] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [switchNetModal, setSwitchNetModal] = useState(null); // { toId }
+  const [switchNetModal, setSwitchNetModal] = useState(null);
+  const [adminPage, setAdminPage] = useState("users"); // "users" | "presets"
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminPresets, setAdminPresets] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [pendingLegenda, setPendingLegenda] = useState(null); // legenda gerada antes de trocar
   const [showSaved, setShowSaved] = useState(false);
 
@@ -1504,6 +1511,16 @@ Avalie "seoScore" e "toneScore".`;
             Legendas salvas
           </button>
 
+          {isAdminUser(currentUser) && (
+            <button
+              onClick={() => setPage("admin")}
+              className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "admin" ? "active" : "text-white/85"}`}
+            >
+              <Shield size={15} />
+              Painel Admin
+            </button>
+          )}
+
           <div className="mx-2 h-px my-2" style={{ background: "rgba(255,255,255,0.1)" }} />
 
           <p className="text-white/40 text-[10px] font-semibold uppercase tracking-wider pl-4 pb-1">BUs</p>
@@ -1551,7 +1568,7 @@ Avalie "seoScore" e "toneScore".`;
             {bu.label}
           </p>
           <h2 className="text-lg font-semibold">
-            {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : "Legendas salvas"}
+            {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : "Legendas salvas"}
           </h2>
         </div>
 
@@ -1918,6 +1935,146 @@ Avalie "seoScore" e "toneScore".`;
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {page === "admin" && isAdminUser(currentUser) && (
+            <div>
+              <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Painel Admin</h2>
+              <p className="text-sm mb-4" style={{ color: MUTED }}>
+                {currentUser?.email === OWNER_EMAIL ? "Proprietário" : "Administrador"} · acesso total
+              </p>
+
+              <div className="flex gap-2 mb-6">
+                {["users", "presets"].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={async () => {
+                      setAdminPage(tab);
+                      setAdminLoading(true);
+                      try {
+                        if (tab === "users") {
+                          const data = await storageAPI({ action: "listUsers" });
+                          setAdminUsers(data.users || []);
+                        } else {
+                          const data = await storageAPI({ action: "listAllPresets", requesterEmail: currentUser?.email });
+                          setAdminPresets(data.presets || []);
+                        }
+                      } catch (e) { setError(`Erro ao carregar: ${e.message}`); }
+                      finally { setAdminLoading(false); }
+                    }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium border"
+                    style={adminPage === tab ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: "#FFF", color: MUTED, borderColor: BORDER }}
+                  >
+                    {tab === "users" ? "Usuários" : "Estilos"}
+                  </button>
+                ))}
+                <button
+                  onClick={async () => {
+                    setAdminLoading(true);
+                    try {
+                      if (adminPage === "users") {
+                        const data = await storageAPI({ action: "listUsers" });
+                        setAdminUsers(data.users || []);
+                      } else {
+                        const data = await storageAPI({ action: "listAllPresets", requesterEmail: currentUser?.email });
+                        setAdminPresets(data.presets || []);
+                      }
+                    } catch (e) { setError(`Erro ao carregar: ${e.message}`); }
+                    finally { setAdminLoading(false); }
+                  }}
+                  className="px-3 py-2 rounded-lg border text-sm"
+                  style={{ borderColor: BORDER, color: MUTED }}
+                >
+                  {adminLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                </button>
+              </div>
+
+              {adminLoading && <p className="text-sm" style={{ color: MUTED }}>Carregando...</p>}
+
+              {!adminLoading && adminPage === "users" && (
+                <div className="space-y-2">
+                  {adminUsers.length === 0 && <p className="text-sm" style={{ color: MUTED }}>Nenhum usuário ainda. Clique em "Usuários" pra carregar.</p>}
+                  {adminUsers.map((u) => (
+                    <div key={u.hash} className="bg-white border rounded-xl p-4 flex items-center justify-between gap-3" style={{ borderColor: BORDER }}>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{u.name}</p>
+                        <p className="text-xs" style={{ color: MUTED }}>{u.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                          style={u.email === OWNER_EMAIL ? { background: "#FEF9C3", color: "#92400E" } : u.role === "admin" ? { background: "#DCFCE7", color: GREEN_DARK } : { background: "#F3F4F6", color: MUTED }}>
+                          {u.email === OWNER_EMAIL ? "Proprietário" : u.role === "admin" ? "Admin" : "Usuário"}
+                        </span>
+                        {currentUser?.email === OWNER_EMAIL && u.email !== OWNER_EMAIL && (
+                          <button
+                            onClick={async () => {
+                              const newRole = u.role === "admin" ? "user" : "admin";
+                              try {
+                                await storageAPI({ action: "setUserRole", targetHash: u.hash, role: newRole, requesterEmail: currentUser.email });
+                                setAdminUsers(prev => prev.map(x => x.hash === u.hash ? { ...x, role: newRole } : x));
+                              } catch (e) { setError(`Erro: ${e.message}`); }
+                            }}
+                            className="text-xs px-2 py-1 rounded border"
+                            style={{ borderColor: BORDER, color: MUTED }}
+                          >
+                            {u.role === "admin" ? "Revogar admin" : "Tornar admin"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!adminLoading && adminPage === "presets" && (
+                <div className="space-y-2">
+                  {adminPresets.length === 0 && <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo ainda. Clique em "Estilos" pra carregar.</p>}
+                  {adminPresets.map((p) => (
+                    <div key={p.id} className="bg-white border rounded-xl p-4" style={{ borderColor: BORDER }}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{p.title || "(sem título)"}</p>
+                          <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
+                            BU: {p._bu} · Criado por: {p.createdBy || "?"} ·
+                            <span className="ml-1" style={{ color: p._visibility === "public" ? GREEN_DARK : MUTED }}>
+                              {p._visibility === "public" ? "Público" : "Privado"}
+                            </span>
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <button
+                            onClick={async () => {
+                              const newVis = p._visibility === "public" ? "private" : "public";
+                              try {
+                                await storageAPI({ action: "adminUpdatePreset", presetId: p.id, visibility: newVis, requesterEmail: currentUser?.email, bu: p._bu, userHash: p._userHash });
+                                setAdminPresets(prev => prev.map(x => x.id === p.id ? { ...x, _visibility: newVis } : x));
+                              } catch (e) { setError(`Erro: ${e.message}`); }
+                            }}
+                            className="text-[11px] px-2 py-1 rounded border"
+                            style={{ borderColor: BORDER, color: MUTED }}
+                          >
+                            {p._visibility === "public" ? "Tornar privado" : "Tornar público"}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Excluir o estilo "${p.title}"?`)) return;
+                              try {
+                                await storageAPI({ action: "deletePreset", presetId: p.id, bu: p._bu, userHash: p._userHash, requesterEmail: currentUser?.email });
+                                setAdminPresets(prev => prev.filter(x => x.id !== p.id));
+                              } catch (e) { setError(`Erro: ${e.message}`); }
+                            }}
+                            className="text-[11px] px-2 py-1 rounded border"
+                            style={{ borderColor: "#FCA5A5", color: "#7F1D1D" }}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

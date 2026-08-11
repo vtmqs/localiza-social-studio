@@ -1,129 +1,125 @@
 // Backend usando Google Sheets como banco de dados
-// Planilha: https://docs.google.com/spreadsheets/d/1MORipRhbN8-X-Afpata5zLfXLq0oBaf8DpP2hTzWtcs
-
 const SHEET_ID = "1MORipRhbN8-X-Afpata5zLfXLq0oBaf8DpP2hTzWtcs";
 const SHEET_NAME = "Presets";
+const OWNER_EMAIL = "vitoriatmqs@gmail.com";
 
 async function getAccessToken() {
   const key = process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, "\n");
   const email = process.env.GOOGLE_CLIENT_EMAIL;
-
   const header = { alg: "RS256", typ: "JWT" };
   const now = Math.floor(Date.now() / 1000);
-  const claim = {
-    iss: email,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
-
+  const claim = { iss: email, scope: "https://www.googleapis.com/auth/spreadsheets", aud: "https://oauth2.googleapis.com/token", iat: now, exp: now + 3600 };
   const encode = (obj) => Buffer.from(JSON.stringify(obj)).toString("base64url");
   const signingInput = `${encode(header)}.${encode(claim)}`;
-
   const { createSign } = await import("crypto");
   const sign = createSign("RSA-SHA256");
   sign.update(signingInput);
-  const signature = sign.sign(key, "base64url");
-  const jwt = `${signingInput}.${signature}`;
-
-  const r = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
+  const jwt = `${signingInput}.${sign.sign(key, "base64url")}`;
+  const r = await fetch("https://oauth2.googleapis.com/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}` });
   const data = await r.json();
   if (!data.access_token) throw new Error(`Token error: ${JSON.stringify(data)}`);
   return data.access_token;
 }
 
 async function sheetsGet(token, range) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`;
-  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  const data = await r.json();
-  return data.values || [];
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`, { headers: { Authorization: `Bearer ${token}` } });
+  return (await r.json()).values || [];
 }
 
 async function sheetsAppend(token, values, sheetName = SHEET_NAME) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=RAW`;
-  await fetch(url, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ values }),
-  });
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}:append?valueInputOption=RAW`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
 }
 
 async function sheetsUpdate(token, range, values) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
-  await fetch(url, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ values }),
-  });
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, { method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ values }) });
 }
 
 async function sheetsClear(token, range) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`;
-  await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
 }
 
-// Lê todos os presets da planilha
 async function getAllPresets(token) {
   const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
-  return rows.map((r) => ({
-    id: r[0] || "",
-    bu: r[1] || "",
-    visibility: r[2] || "public",
-    userHash: r[3] || "",
-    preset: r[4] ? JSON.parse(r[4]) : {},
-    rowIndex: null,
-  }));
+  return rows.map((r, i) => ({ id: r[0] || "", bu: r[1] || "", visibility: r[2] || "public", userHash: r[3] || "", preset: r[4] ? JSON.parse(r[4]) : {}, rowIndex: i + 2 }));
+}
+
+async function getAllUsers(token) {
+  const rows = await sheetsGet(token, "Users!A2:D");
+  return rows.map((r, i) => ({ hash: r[0] || "", name: r[1] || "", email: r[2] || "", role: r[3] || "user", rowIndex: i + 2 }));
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Método não permitido" });
-    return;
-  }
+  if (req.method !== "POST") { res.status(405).json({ error: "Método não permitido" }); return; }
 
   try {
     const token = await getAccessToken();
-    const { action, userHash, bu } = req.body || {};
+    const { action, userHash, bu, email } = req.body || {};
 
-    if (action === "ping") {
-      res.status(200).json({ ok: true, got: "pong" });
-      return;
-    }
+    if (action === "ping") { res.status(200).json({ ok: true, got: "pong" }); return; }
 
+    // ---- USUÁRIOS ----
     if (action === "checkUser") {
-      const rows = await sheetsGet(token, "Users!A2:C");
+      const rows = await sheetsGet(token, "Users!A2:D");
       const user = rows.find((r) => r[0] === userHash);
-      res.status(200).json({ exists: !!user, user: user ? { hash: user[0], name: user[1] } : null });
+      const isOwner = email === OWNER_EMAIL;
+      res.status(200).json({ exists: !!user, user: user ? { hash: user[0], name: user[1], email: user[2] || "", role: isOwner ? "owner" : (user[3] || "user") } : null });
       return;
     }
 
     if (action === "registerUser") {
-      const { name, userHash: hash } = req.body;
-      const rows = await sheetsGet(token, "Users!A2:C");
+      const { name, userHash: hash, email: userEmail } = req.body;
+      const rows = await sheetsGet(token, "Users!A2:D");
       const existing = rows.find((r) => r[0] === hash);
-      if (!existing) {
-        await sheetsAppend(token, [[hash, name, new Date().toISOString()]], "Users");
+      const role = userEmail === OWNER_EMAIL ? "owner" : "user";
+      if (!existing) await sheetsAppend(token, [[hash, name, userEmail || "", role]], "Users");
+      else if (existing[3] !== role && userEmail === OWNER_EMAIL) {
+        const rowIdx = rows.indexOf(existing);
+        await sheetsUpdate(token, `Users!D${rowIdx + 2}`, [["owner"]]);
       }
-      res.status(200).json({ ok: true, user: { hash, name } });
+      res.status(200).json({ ok: true, user: { hash, name, email: userEmail || "", role } });
       return;
     }
 
+    if (action === "listUsers") {
+      const users = await getAllUsers(token);
+      res.status(200).json({ users: users.map(u => ({ hash: u.hash, name: u.name, email: u.email, role: u.email === OWNER_EMAIL ? "owner" : u.role })) });
+      return;
+    }
+
+    if (action === "setUserRole") {
+      const { targetHash, role: newRole, requesterEmail } = req.body;
+      if (requesterEmail !== OWNER_EMAIL) { res.status(403).json({ error: "Sem permissão." }); return; }
+      const users = await getAllUsers(token);
+      const idx = users.findIndex(u => u.hash === targetHash);
+      if (idx < 0) { res.status(404).json({ error: "Usuário não encontrado." }); return; }
+      if (users[idx].email === OWNER_EMAIL) { res.status(403).json({ error: "Não é possível alterar o proprietário." }); return; }
+      await sheetsUpdate(token, `Users!D${users[idx].rowIndex}`, [[newRole]]);
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    // ---- PRESETS ----
     if (action === "listPublicPresets") {
       const all = await getAllPresets(token);
-      const presets = all.filter((p) => p.bu === bu && p.visibility === "public").map((p) => p.preset);
-      res.status(200).json({ presets });
+      res.status(200).json({ presets: all.filter(p => p.bu === bu && p.visibility === "public").map(p => p.preset) });
       return;
     }
 
     if (action === "listPrivatePresets") {
       const all = await getAllPresets(token);
-      const presets = all.filter((p) => p.bu === bu && p.visibility === "private" && p.userHash === userHash).map((p) => p.preset);
-      res.status(200).json({ presets });
+      res.status(200).json({ presets: all.filter(p => p.bu === bu && p.visibility === "private" && p.userHash === userHash).map(p => p.preset) });
+      return;
+    }
+
+    if (action === "listAllPresets") {
+      // Só admin/owner pode ver todos
+      const { requesterEmail } = req.body;
+      const users = await getAllUsers(token);
+      const requester = users.find(u => u.email === requesterEmail);
+      if (!requester && requesterEmail !== OWNER_EMAIL) { res.status(403).json({ error: "Sem permissão." }); return; }
+      if (requesterEmail !== OWNER_EMAIL && requester?.role !== "admin") { res.status(403).json({ error: "Sem permissão." }); return; }
+      const all = await getAllPresets(token);
+      res.status(200).json({ presets: all.map(p => ({ ...p.preset, _bu: p.bu, _visibility: p.visibility, _userHash: p.userHash })) });
       return;
     }
 
@@ -132,11 +128,25 @@ export default async function handler(req, res) {
       const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
       const rowIdx = rows.findIndex((r) => r[0] === preset.id);
       const row = [preset.id, bu, visibility, userHash || "", JSON.stringify(preset)];
-      if (rowIdx >= 0) {
-        await sheetsUpdate(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`, [row]);
-      } else {
-        await sheetsAppend(token, [row]);
-      }
+      if (rowIdx >= 0) await sheetsUpdate(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`, [row]);
+      else await sheetsAppend(token, [row]);
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === "adminUpdatePreset") {
+      // Admin pode mudar visibilidade ou deletar qualquer preset
+      const { presetId, preset, visibility: newVis } = req.body;
+      const { requesterEmail } = req.body;
+      const users = await getAllUsers(token);
+      const requester = users.find(u => u.email === requesterEmail);
+      if (requesterEmail !== OWNER_EMAIL && requester?.role !== "admin") { res.status(403).json({ error: "Sem permissão." }); return; }
+      const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
+      const rowIdx = rows.findIndex((r) => r[0] === presetId);
+      if (rowIdx < 0) { res.status(404).json({ error: "Preset não encontrado." }); return; }
+      const current = rows[rowIdx];
+      const updated = [current[0], current[1], newVis || current[2], current[3], preset ? JSON.stringify(preset) : current[4]];
+      await sheetsUpdate(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`, [updated]);
       res.status(200).json({ ok: true });
       return;
     }
@@ -145,9 +155,7 @@ export default async function handler(req, res) {
       const { presetId } = req.body;
       const rows = await sheetsGet(token, `${SHEET_NAME}!A2:E`);
       const rowIdx = rows.findIndex((r) => r[0] === presetId);
-      if (rowIdx >= 0) {
-        await sheetsClear(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`);
-      }
+      if (rowIdx >= 0) await sheetsClear(token, `${SHEET_NAME}!A${rowIdx + 2}:E${rowIdx + 2}`);
       res.status(200).json({ ok: true });
       return;
     }
