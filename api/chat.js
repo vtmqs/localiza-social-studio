@@ -1,74 +1,71 @@
-// Endpoint do chat assistente — usa Gemini (já configurado)
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.status(405).json({ error: "Método não permitido" });
-    return;
-  }
+  if (req.method !== "POST") { res.status(405).json({ error: "Método não permitido" }); return; }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) { res.status(500).json({ error: "GEMINI_API_KEY não configurada." }); return; }
 
   const { messages, userName } = req.body || {};
-  const apiKey = process.env.GEMINI_API_KEY;
+  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
 
-  if (!apiKey) {
-    res.status(500).json({ error: "API não configurada." });
-    return;
-  }
-
-  const systemPrompt = `Você é o assistente do Social Studio, a ferramenta interna de geração de legendas da Localiza para redes sociais.${userName ? ` Você está conversando com ${userName} — chame-a/o pelo nome quando fizer sentido, especialmente na saudação inicial.` : ""}
-
-SOBRE A FERRAMENTA:
-- Social Studio gera legendas otimizadas para Instagram, LinkedIn, TikTok e YouTube para 5 BUs: RAC Brasil, Zarp, Assinatura, Caminhões e Seminovos
-- Acesso: senha geral "conteudo2026localiza" + cadastro individual com email e senha pessoal
+  const systemPrompt = `Você é o assistente do Social Studio, ferramenta interna de geração de legendas da Localiza.${userName ? ` Você está conversando com ${userName} — use o nome quando fizer sentido.` : ""}
 
 FUNCIONALIDADES:
-1. Nova legenda: tópico + rede + palavras-chave + tom + opções (emojis, hashtags, bullets, citar Localiza). Atalho: Cmd+Enter.
-2. Otimizar legenda: cola texto existente e melhora SEO e tom
-3. Estilo geral da marca: configura regras, tom de voz, vocabulário por BU. Importa template .txt.
-4. Estilos criados: lista estilos salvos da BU
-5. Legendas salvas: biblioteca com busca, filtros, calendário editorial, histórico de versões
-6. Painel Admin: só admins/proprietário. Gerencia usuários e estilos.
-7. Notificações (sino): atividade pública da BU em tempo real
+- 5 BUs: RAC Brasil, Zarp, Assinatura, Caminhões, Seminovos
+- Nova legenda: tópico + rede + palavras-chave + opções → Cmd+Enter pra gerar
+- Otimizar legenda: cola texto existente e melhora
+- Estilo geral da marca: configura tom, regras, vocabulário por BU
+- Estilos criados: lista estilos salvos
+- Legendas salvas: biblioteca com busca, filtros, calendário, histórico de versões
+- Painel Admin: só admins. Gerencia usuários e estilos.
+- Chat (você): tira dúvidas sobre a ferramenta
 
-ATALHOS E DICAS:
-- Cmd+Enter (Mac) / Ctrl+Enter (Win): gerar sem clicar no botão
+ATALHOS:
+- Cmd+Enter (Mac) / Ctrl+Enter (Win): gerar legenda
 - Botão direito nas BUs: abre em nova guia
-- "Destacar" ao salvar: vira referência automática para próximas gerações
+- "Destacar": legenda vira referência automática para próximas gerações
 - "Salvar": guarda sem destacar
-- Preview: simula como a legenda aparece no feed de cada rede
-- Exportar (⬇): copia todas as legendas geradas de uma vez
-- Calendário: ao salvar com data, aparece no calendário editorial
-- Cores das palavras-chave: verde = boa, amarelo = média, vermelho = fraca
-- Citar Localiza: força a marca aparecer em 1ª/2ª/3ª pessoa
+- Preview: simula a legenda no feed de cada rede
+- Exportar (⬇): copia todas as legendas de uma vez
+- Cores das KWs: verde = boa SEO, amarelo = média, vermelho = fraca
 
-LIMITAÇÕES:
-- Não gere legendas, textos prontos para posts ou conteúdo de marketing
-- Só tire dúvidas, dê dicas, opiniões e auxilie no uso da ferramenta
+REGRAS:
+- Só auxilie no uso da ferramenta, dê dicas e opiniões
+- NÃO gere legendas nem crie textos de marketing
+- Seja conciso, direto e amigável em português brasileiro casual`;
 
-Seja direto, prático, amigável e conciso. Responda sempre em português brasileiro casual.`;
-
-  // Formata histórico pra o Gemini (alternando user/model)
-  const formattedMessages = (messages || []).map(m => ({
+  // Formata histórico alternando user/model (exigência do Gemini)
+  const contents = (messages || []).map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
 
   try {
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: formattedMessages,
-        generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
-      }),
-    });
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: contents.slice(-10),
+          generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
+        }),
+      }
+    );
 
     const data = await r.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui responder agora. Tenta de novo!";
+
+    if (!r.ok) {
+      res.status(500).json({ error: data?.error?.message || "Erro na API Gemini." });
+      return;
+    }
+
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui responder agora.";
     res.status(200).json({ reply });
   } catch (e) {
-    res.status(500).json({ error: `Erro: ${e.message}` });
+    res.status(500).json({ error: e.message });
   }
 }
