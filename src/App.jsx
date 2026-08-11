@@ -587,6 +587,77 @@ function ScoreRing({ label, value }) {
   );
 }
 
+
+function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, isLast }) {
+  const [targetRect, setTargetRect] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!step.target) { setTargetRect(null); return; }
+    const el = document.querySelector(step.target);
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      setTargetRect(null);
+    }
+  }, [step]);
+
+  const popupStyle = (() => {
+    if (!targetRect || step.position === "center") return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+    const gap = 16;
+    if (step.position === "right") return { top: Math.max(8, targetRect.top), left: Math.min(targetRect.left + targetRect.width + gap, window.innerWidth - 320) };
+    if (step.position === "bottom") return { top: Math.min(targetRect.top + targetRect.height + gap, window.innerHeight - 200), left: Math.max(8, targetRect.left - 20) };
+    if (step.position === "top") return { bottom: window.innerHeight - targetRect.top + gap, left: Math.max(8, targetRect.left - 20) };
+    return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+  })();
+
+  return (
+    <div className="fixed inset-0 z-[60]" style={{ pointerEvents: "none" }}>
+      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: "all" }} onClick={e => e.stopPropagation()}>
+        <defs>
+          <mask id="spotlight-mask">
+            <rect width="100%" height="100%" fill="white" />
+            {targetRect && (
+              <rect x={targetRect.left - 6} y={targetRect.top - 6} width={targetRect.width + 12} height={targetRect.height + 12} rx="8" fill="black" />
+            )}
+          </mask>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#spotlight-mask)" />
+        {targetRect && (
+          <rect x={targetRect.left - 6} y={targetRect.top - 6} width={targetRect.width + 12} height={targetRect.height + 12} rx="8" fill="none" stroke="#78DE1F" strokeWidth="2" strokeDasharray="6 3" />
+        )}
+      </svg>
+      <div className="absolute bg-white rounded-2xl p-5 shadow-2xl" style={{ ...popupStyle, width: 300, maxWidth: "calc(100vw - 32px)", zIndex: 70, pointerEvents: "all" }}>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#EAF9DC", color: "#014A1F" }}>
+            {stepIndex + 1} / {total}
+          </span>
+          <button onClick={onDone} className="text-[11px]" style={{ color: "#5B6B60" }}>Pular</button>
+        </div>
+        <h3 className="text-sm font-bold mb-1.5" style={{ color: "#014A1F" }}>{step.title}</h3>
+        <p className="text-xs leading-relaxed mb-4" style={{ color: "#5B6B60" }}>{step.desc}</p>
+        {step.autoAdvance && (
+          <p className="text-[10px] italic mb-3" style={{ color: "#5B6B60" }}>↑ Clique no elemento destacado para avançar</p>
+        )}
+        <div className="flex gap-2">
+          {stepIndex > 0 && (
+            <button onClick={onPrev} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>‹ Voltar</button>
+          )}
+          <button onClick={isLast ? onDone : onNext} className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ background: "#01652A" }}>
+            {isLast ? "Começar!" : step.autoAdvance ? "Pular passo →" : "Próximo →"}
+          </button>
+        </div>
+        <div className="flex justify-center gap-1 mt-3">
+          {Array.from({ length: total }).map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i === stepIndex ? "#01652A" : "#E1E8E2" }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const APP_PASSWORD = "conteudo2026localiza";
 
 const CHAT_SYSTEM_PROMPT = `Você é o assistente do Social Studio, a ferramenta interna de geração de legendas da Localiza para redes sociais. Seu papel é ajudar os membros do time de conteúdo a usar a ferramenta com mais eficiência.
@@ -2013,6 +2084,18 @@ data-onboard="library-btn"
           )}
 
           <button
+            onClick={() => {
+              localStorage.removeItem("onboard-done");
+              setPage("compose");
+              setResults(null);
+              setTimeout(() => setOnboardStep(0), 100);
+            }}
+            className="flex items-center gap-2 text-white/40 text-xs hover:text-white/70 transition-colors mb-2"
+          >
+            <HelpCircle size={13} />
+            Refazer tutorial
+          </button>
+          <button
             onClick={async () => {
               storage.set("current-user", "");
               storage.set("app-unlocked", "");
@@ -2024,16 +2107,6 @@ data-onboard="library-btn"
           >
             <LogOut size={13} />
             Sair
-          </button>
-          <button
-            onClick={() => {
-              localStorage.removeItem("onboard-done");
-              setOnboardStep(0);
-            }}
-            className="flex items-center gap-2 text-white/40 text-xs hover:text-white/70 transition-colors mt-2"
-          >
-            <HelpCircle size={13} />
-            Refazer tutorial
           </button>
         </div>
         </div>{/* fim do div colapsável mobile */}
@@ -3658,109 +3731,17 @@ Crie/otimize o título:`,
     )}
 
     {/* Onboarding spotlight */}
-    {onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (() => {
-      const step = ONBOARDING_STEPS[onboardStep];
-      const isLast = onboardStep === ONBOARDING_STEPS.length - 1;
-
-      // Calcula posição do elemento alvo para o spotlight
-      const [targetRect, setTargetRect] = React.useState(null);
-      React.useEffect(() => {
-        if (!step.target) { setTargetRect(null); return; }
-        const el = document.querySelector(step.target);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        } else { setTargetRect(null); }
-      }, [onboardStep]);
-
-      // Posição do popup relativa ao elemento
-      const popupStyle = (() => {
-        if (!targetRect || step.position === "center") return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
-        const gap = 16;
-        if (step.position === "right") return { top: Math.max(8, targetRect.top), left: targetRect.left + targetRect.width + gap };
-        if (step.position === "bottom") return { top: targetRect.top + targetRect.height + gap, left: Math.max(8, targetRect.left - 20) };
-        if (step.position === "top") return { bottom: window.innerHeight - targetRect.top + gap, left: Math.max(8, targetRect.left - 20) };
-        return { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
-      })();
-
-      return (
-        <div className="fixed inset-0 z-[60]" style={{ pointerEvents: "none" }}>
-          {/* Overlay escuro com buraco no elemento alvo */}
-          <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: "all" }} onClick={(e) => e.stopPropagation()}>
-            <defs>
-              <mask id="spotlight-mask">
-                <rect width="100%" height="100%" fill="white" />
-                {targetRect && (
-                  <rect
-                    x={targetRect.left - 6}
-                    y={targetRect.top - 6}
-                    width={targetRect.width + 12}
-                    height={targetRect.height + 12}
-                    rx="8"
-                    fill="black"
-                  />
-                )}
-              </mask>
-            </defs>
-            <rect width="100%" height="100%" fill="rgba(0,0,0,0.65)" mask="url(#spotlight-mask)" />
-            {/* Borda brilhante ao redor do elemento alvo */}
-            {targetRect && (
-              <rect
-                x={targetRect.left - 6}
-                y={targetRect.top - 6}
-                width={targetRect.width + 12}
-                height={targetRect.height + 12}
-                rx="8"
-                fill="none"
-                stroke="#78DE1F"
-                strokeWidth="2"
-                strokeDasharray="6 3"
-              />
-            )}
-          </svg>
-
-          {/* Popup */}
-          <div
-            className="absolute bg-white rounded-2xl p-5 shadow-2xl"
-            style={{ ...popupStyle, width: 300, maxWidth: "calc(100vw - 32px)", zIndex: 70, pointerEvents: "all" }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
-                {onboardStep + 1} / {ONBOARDING_STEPS.length}
-              </span>
-              <button onClick={onboardDone} className="text-[11px]" style={{ color: MUTED }}>Pular</button>
-            </div>
-            <h3 className="text-sm font-bold mb-1.5" style={{ color: GREEN_DARK }}>{step.title}</h3>
-            <p className="text-xs leading-relaxed mb-4" style={{ color: MUTED }}>{step.desc}</p>
-            {step.autoAdvance ? (
-              <p className="text-[10px] italic mb-3" style={{ color: MUTED }}>
-                ↑ Clique no elemento destacado para avançar automaticamente
-              </p>
-            ) : null}
-            <div className="flex gap-2">
-              {onboardStep > 0 && (
-                <button onClick={() => setOnboardStep(s => s - 1)} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: BORDER, color: MUTED }}>
-                  ‹ Voltar
-                </button>
-              )}
-              <button
-                onClick={() => isLast ? onboardDone() : setOnboardStep(s => s + 1)}
-                className="flex-1 py-1.5 rounded-lg text-xs font-semibold text-white"
-                style={{ background: GREEN }}
-              >
-                {isLast ? "Começar!" : step.autoAdvance ? "Pular este passo →" : "Próximo →"}
-              </button>
-            </div>
-            <div className="flex justify-center gap-1 mt-3">
-              {ONBOARDING_STEPS.map((_, i) => (
-                <div key={i} onClick={() => setOnboardStep(i)} className="w-1.5 h-1.5 rounded-full cursor-pointer transition-all" style={{ background: i === onboardStep ? GREEN : BORDER }} />
-              ))}
-            </div>
-          </div>
-        </div>
-      );
-    })()}
+    {onboardStep >= 0 && onboardStep < ONBOARDING_STEPS.length && (
+      <OnboardingSpotlight
+        step={ONBOARDING_STEPS[onboardStep]}
+        stepIndex={onboardStep}
+        total={ONBOARDING_STEPS.length}
+        onNext={() => setOnboardStep(s => s + 1)}
+        onPrev={() => setOnboardStep(s => s - 1)}
+        onDone={onboardDone}
+        isLast={onboardStep === ONBOARDING_STEPS.length - 1}
+      />
+    )}
 
     {/* Modal de erro */}
     {errorModal && (
