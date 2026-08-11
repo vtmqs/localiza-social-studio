@@ -39,6 +39,8 @@ import {
   Eye,
   Download,
   Calendar,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -443,6 +445,39 @@ function ScoreRing({ label, value }) {
 }
 
 const APP_PASSWORD = "conteudo2026localiza";
+
+const CHAT_SYSTEM_PROMPT = `Você é o assistente do Social Studio, a ferramenta interna de geração de legendas da Localiza para redes sociais. Seu papel é ajudar os membros do time de conteúdo a usar a ferramenta com mais eficiência.
+
+SOBRE A FERRAMENTA:
+- Social Studio gera legendas otimizadas para Instagram, LinkedIn, TikTok e YouTube para 5 BUs: RAC Brasil, Zarp, Assinatura, Caminhões e Seminovos
+- Acesso: senha geral "conteudo2026localiza" + cadastro individual com email e senha pessoal
+- URL: localiza-social-studio.vercel.app
+
+FUNCIONALIDADES PRINCIPAIS:
+1. Nova legenda: descreve o tópico, seleciona rede, palavras-chave, tom, tamanho e opções (emojis, hashtags, bullets, citar Localiza). Atalho: Cmd+Enter para gerar.
+2. Otimizar legenda: cola uma legenda existente e a ferramenta melhora SEO e tom
+3. Estilo geral da marca: configura regras, tom de voz, vocabulário e eixo editorial por BU. Pode importar template .txt
+4. Estilos criados: lista todos os estilos salvos da BU, públicos e privados
+5. Legendas salvas: biblioteca com busca, filtro por rede, visualização em calendário e histórico de versões
+6. Painel Admin: visível só para admins/proprietário. Gerencia usuários e estilos
+
+DICAS E ATALHOS:
+- Cmd+Enter (Mac) / Ctrl+Enter (Windows): gerar legenda
+- Botão direito nas BUs do menu: abre em nova guia
+- "Destacar" ao salvar: legenda vira referência automática para próximas gerações
+- "Salvar" apenas guarda sem destacar
+- Score de SEO, Tom e Originalidade aparecem em cada legenda gerada
+- Preview: veja como a legenda ficaria no feed antes de copiar
+- Exportar: botão ⬇ copia todas as legendas geradas de uma vez
+- Calendário: ao salvar com data de publicação, aparece no calendário editorial
+- Conteúdo relacionado: busca posts reais da Localiza para usar como link ou inspiração
+- Citar Localiza: força a marca aparecer na legenda em 1ª, 2ª ou 3ª pessoa
+
+REGRAS DO QUE VOCÊ PODE E NÃO PODE:
+✅ Pode: explicar como usar qualquer funcionalidade, sugerir qual botão clicar, dar dicas de boas práticas, opinar sobre estratégia de conteúdo, ajudar a configurar estilos, esclarecer dúvidas sobre SEO e redes sociais
+❌ Não pode: gerar legendas, criar textos para posts, escrever conteúdo de marketing
+
+Seja direto, prático e amigável. Quando sugerir uma ação, indique o caminho exato (ex: "vá em Estilo geral da marca → campo Tom de voz"). Responda sempre em português brasileiro casual.`;
 const OWNER_EMAIL = "vitoriatmqs@gmail.com";
 const isAdminUser = (user) => user && (user.email === OWNER_EMAIL || user.role === "admin" || user.role === "owner");
 
@@ -635,6 +670,49 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [savedCaption, setSavedCaption] = useState({});
   const [starredCaption, setStarredCaption] = useState({});
+
+  // Chat assistente
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { role: "assistant", content: "Oi! 👋 Sou o assistente do Social Studio. Posso te ajudar com qualquer dúvida sobre a ferramenta, sugerir atalhos ou explicar como usar cada funcionalidade. Como posso ajudar?" }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (chatOpen && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, chatOpen]);
+
+  const sendChatMessage = async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput("");
+    const newMessages = [...chatMessages, { role: "user", content: msg }];
+    setChatMessages(newMessages);
+    setChatLoading(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 1000,
+          system: `${CHAT_SYSTEM_PROMPT}`,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || "Não consegui responder agora. Tenta de novo!";
+      setChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar. Verifica sua conexão e tenta de novo." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   const bu = BUS.find((b) => b.id === activeBU);
   const buPresets = (activeBU && presets[activeBU]) || [];
@@ -3534,6 +3612,86 @@ Crie/otimize o título:`,
         </div>
       </div>
     )}
+    {/* Chat assistente flutuante */}
+    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+      {chatOpen && (
+        <div className="bg-white rounded-2xl shadow-2xl border flex flex-col overflow-hidden"
+          style={{ width: 340, height: 480, borderColor: BORDER }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 shrink-0"
+            style={{ background: GREEN }}>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center text-sm">🤖</div>
+              <div>
+                <p className="text-white text-xs font-semibold leading-none">Assistente</p>
+                <p className="text-white/60 text-[10px]">Social Studio</p>
+              </div>
+            </div>
+            <button onClick={() => setChatOpen(false)} className="text-white/70 hover:text-white">
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Mensagens */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ background: "#F6F9F6" }}>
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className="rounded-2xl px-3 py-2 text-xs leading-relaxed max-w-[85%]"
+                  style={msg.role === "user"
+                    ? { background: GREEN, color: "#fff", borderBottomRightRadius: 4 }
+                    : { background: "#fff", color: TEXT, borderColor: BORDER, border: `1px solid ${BORDER}`, borderBottomLeftRadius: 4 }}
+                >
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl px-3 py-2 text-xs flex items-center gap-1.5"
+                  style={{ background: "#fff", color: MUTED, border: `1px solid ${BORDER}`, borderBottomLeftRadius: 4 }}>
+                  <Loader2 size={11} className="animate-spin" />
+                  Digitando...
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-3 py-3 border-t flex gap-2 shrink-0" style={{ borderColor: BORDER, background: "#fff" }}>
+            <input
+              type="text"
+              value={chatInput}
+              onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
+              placeholder="Pergunte sobre a ferramenta..."
+              className="flex-1 text-xs border rounded-lg px-3 py-2"
+              style={{ borderColor: BORDER, color: TEXT }}
+            />
+            <button
+              onClick={sendChatMessage}
+              disabled={chatLoading || !chatInput.trim()}
+              className="rounded-lg px-3 py-2 text-white disabled:opacity-40 shrink-0"
+              style={{ background: GREEN }}
+            >
+              <Send size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Botão flutuante */}
+      <button
+        onClick={() => setChatOpen(o => !o)}
+        className="w-12 h-12 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+        style={{ background: GREEN, boxShadow: "0 4px 20px rgba(1,101,42,0.4)" }}
+        title="Assistente da ferramenta"
+      >
+        {chatOpen ? <X size={20} /> : <MessageCircle size={20} />}
+      </button>
+    </div>
+
     </>
   );
 }
