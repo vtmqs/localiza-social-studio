@@ -935,6 +935,7 @@ export default function App() {
     const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
   });
   const [calView, setCalView] = useState(false); // false = lista, true = calendário
+  const [calSelectedDay, setCalSelectedDay] = useState(null); // { day, month, year }
 
   const [notifications, setNotifications] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -3102,8 +3103,17 @@ data-onboard="library-btn"
                           const posts = byDay[day] || [];
                           const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
                           return (
-                            <div key={day} className="rounded-lg p-1.5 min-h-[48px]" style={{ background: isToday ? LIME_SOFT : "#FFFFFF", border: `1px solid ${isToday ? LIME : BORDER}` }}>
-                              <p className="text-[10px] font-bold mb-1" style={{ color: isToday ? GREEN_DARK : MUTED }}>{day}</p>
+                            <div
+                              key={day}
+                              className="rounded-lg p-1.5 min-h-[48px] cursor-pointer hover:opacity-80 transition-opacity"
+                              style={{ background: isToday ? LIME_SOFT : posts.length > 0 ? "#F0FFF4" : "#FFFFFF", border: `1px solid ${isToday ? LIME : posts.length > 0 ? GREEN : BORDER}` }}
+                              onClick={() => {
+                                if (posts.length > 0) {
+                                  setCalSelectedDay({ day, month, year });
+                                }
+                              }}
+                            >
+                              <p className="text-[10px] font-bold mb-1" style={{ color: isToday ? GREEN_DARK : posts.length > 0 ? GREEN_DARK : MUTED }}>{day}</p>
                               {posts.slice(0, 2).map((post, pi) => (
                                 <button
                                   key={pi}
@@ -4200,6 +4210,70 @@ Crie/otimize o título:`,
         </div>
       </div>
     )}
+
+    {/* Modal de legendas do dia */}
+    {calSelectedDay && (() => {
+      const { day, month, year } = calSelectedDay;
+      const monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+      const dayPosts = buLibrary.filter(x => {
+        if (!x.publishDate) return false;
+        const parts = x.publishDate.split("-");
+        return parseInt(parts[2]) === day && parseInt(parts[1]) - 1 === month && parseInt(parts[0]) === year;
+      });
+      return (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0" style={{ background: "rgba(0,0,0,0.45)" }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b shrink-0" style={{ borderColor: BORDER }}>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{day} de {monthNames[month]} de {year}</p>
+                <p className="text-[11px]" style={{ color: MUTED }}>{dayPosts.length} legenda{dayPosts.length !== 1 ? "s" : ""} agendada{dayPosts.length !== 1 ? "s" : ""}</p>
+              </div>
+              <button onClick={() => setCalSelectedDay(null)}><X size={16} style={{ color: MUTED }} /></button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-4 py-4 space-y-3">
+              {dayPosts.map(cap => {
+                const Icon = PLATFORMS.find(pl => pl.id === cap.platform)?.icon || FileEdit;
+                return (
+                  <div key={cap.id} className="border rounded-xl p-4" style={{ borderColor: cap.destaque ? LIME : BORDER }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon size={13} style={{ color: GREEN }} />
+                      <span className="text-[11px] font-semibold capitalize" style={{ color: GREEN_DARK }}>{cap.platform}</span>
+                      {cap.destaque && <Star size={11} fill={LIME} style={{ color: LIME }} />}
+                      {cap.topico && <span className="text-[10px] ml-auto" style={{ color: MUTED }}>{cap.topico.slice(0, 30)}</span>}
+                    </div>
+                    {cap.titulo_youtube && (
+                      <p className="text-xs font-medium mb-1.5" style={{ color: GREEN_DARK }}>📺 {cap.titulo_youtube}</p>
+                    )}
+                    <div className="text-xs leading-relaxed" style={{ color: TEXT }}>
+                      {renderLegenda(cap.legenda?.slice(0, 200) + (cap.legenda?.length > 200 ? "..." : ""))}
+                    </div>
+                    {cap.postLink && (
+                      <a href={cap.postLink} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-[10px] mt-2" style={{ color: GREEN }}>
+                        <ExternalLink size={10} /> Ver post publicado
+                      </a>
+                    )}
+                    <button
+                      onClick={() => {
+                        setCalSelectedDay(null);
+                        setCalView(false);
+                        setTimeout(() => {
+                          const el = document.getElementById(`caption-${cap.id}`);
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }, 150);
+                      }}
+                      className="text-[10px] mt-2 block"
+                      style={{ color: MUTED }}
+                    >
+                      Ver legenda completa →
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    })()}
 
     {/* Modal de análise de scores */}
     {scoreModal && (
