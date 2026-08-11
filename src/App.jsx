@@ -2969,7 +2969,17 @@ data-onboard="library-btn"
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {buLibrary.map((c) => {
+                  {buLibrary.filter(c => {
+                    if (libraryFilter === "destaque") return c.destaque;
+                    if (libraryFilter !== "all") return c.platform === libraryFilter;
+                    return true;
+                  }).filter(c => {
+                    if (!librarySearch.trim()) return true;
+                    const q = librarySearch.toLowerCase();
+                    return (c.legenda || "").toLowerCase().includes(q) ||
+                           (c.topico || "").toLowerCase().includes(q) ||
+                           (c.savedBy || "").toLowerCase().includes(q);
+                  }).map((c) => {
                     const Icon = PLATFORMS.find((pl) => pl.id === c.platform)?.icon || FileEdit;
                     return (
                       <div key={c.id} className="ls-card bg-white border rounded-2xl p-5" style={{ borderColor: c.destaque ? LIME : BORDER }}>
