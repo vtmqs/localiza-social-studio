@@ -3223,19 +3223,29 @@ data-onboard="library-btn"
                             type="url"
                             value={c.postLink || ""}
                             onChange={(e) => {
-                              const updated = buLibrary.map(x => x.id === c.id ? { ...x, postLink: e.target.value } : x);
+                              const updated = buLibrary.map(x => x.id === c.id ? { ...x, postLink: e.target.value, _linkDirty: true } : x);
                               setLibrary(prev => ({ ...prev, [activeBU]: updated }));
                               localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
                             }}
-                            onBlur={(e) => {
-                              const updated = buLibrary.map(x => x.id === c.id ? { ...x, postLink: e.target.value } : x);
-                              storageAPI({ action: "saveCaption", caption: { ...c, postLink: e.target.value } }).catch(() => {});
-                            }}
                             placeholder="Link do post publicado (opcional)"
                             className="flex-1 text-[11px] border rounded px-2 py-1"
-                            style={{ borderColor: BORDER, color: MUTED }}
+                            style={{ borderColor: c._linkDirty ? GREEN : BORDER, color: MUTED }}
                           />
-                          {c.postLink && (
+                          {c._linkDirty && (
+                            <button
+                              onClick={() => {
+                                const updated = buLibrary.map(x => x.id === c.id ? { ...x, _linkDirty: false } : x);
+                                setLibrary(prev => ({ ...prev, [activeBU]: updated }));
+                                localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+                                storageAPI({ action: "saveCaption", caption: { ...c, _linkDirty: undefined } }).catch(() => {});
+                              }}
+                              className="text-[10px] px-2 py-1 rounded font-medium text-white shrink-0"
+                              style={{ background: GREEN }}
+                            >
+                              Salvar
+                            </button>
+                          )}
+                          {c.postLink && !c._linkDirty && (
                             <a href={c.postLink} target="_blank" rel="noreferrer" style={{ color: GREEN }}>
                               <ExternalLink size={11} />
                             </a>
