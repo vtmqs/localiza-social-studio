@@ -634,6 +634,7 @@ export default function App() {
   const [savingCaption, setSavingCaption] = useState({});
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [savedCaption, setSavedCaption] = useState({});
+  const [starredCaption, setStarredCaption] = useState({});
 
   const bu = BUS.find((b) => b.id === activeBU);
   const buPresets = (activeBU && presets[activeBU]) || [];
@@ -1135,8 +1136,13 @@ export default function App() {
         ? `Se houver URL pra incluir, coloque-a SEMPRE no final do texto, depois de toda a mensagem e antes das hashtags, assim: "Confira em: ${urls[0]}" ou "Saiba mais: ${urls[0]}". Nunca escreva "link na bio" nem mencione a URL no meio do texto. URLs a incluir: ${urls.join(", ")}.`
         : "Nenhuma URL selecionada para incluir.";
 
+    const pessoaExemplo = draft.pessoaLocaliza === "1"
+      ? "1ª pessoa do plural. Exemplos reais de como usar: 'Na Localiza, a gente acredita que...', 'Somos a maior rede de aluguel de carros do Brasil e...', 'Oferecemos a frota mais nova do mercado para...'. A marca deve aparecer como sujeito ativo da frase."
+      : draft.pessoaLocaliza === "2"
+      ? "2ª pessoa dirigida ao leitor. Exemplos reais: 'Com a Localiza, você escolhe o carro certo para...', 'Sua viagem começa quando você reserva com a Localiza', 'Para você que busca conforto e segurança, a Localiza tem...'. O leitor é o foco, a Localiza resolve o problema dele."
+      : "3ª pessoa. Exemplos reais: 'A Localiza é a parceira de viagem de quem...', 'Com mais de X agências, a Localiza garante que...', 'A Localiza lança mais uma frota de veículos...'. Fale da marca como protagonista da história.";
     const citarInstr = draft.citarLocaliza
-      ? `OBRIGATÓRIO: mencione a Localiza explicitamente na legenda. Use a ${draft.pessoaLocaliza === "1" ? "1ª pessoa do plural (Somos, Oferecemos, Nosso, Nossa, Nós da Localiza)" : draft.pessoaLocaliza === "2" ? "2ª pessoa (Você, Sua, Com a Localiza você)" : "3ª pessoa (A Localiza, Ela oferece)"}.`
+      ? `OBRIGATÓRIO — CITAR A LOCALIZA: a legenda DEVE conter uma frase que mencione a Localiza explicitamente pelo nome, integrada de forma natural ao texto. Use ${pessoaExemplo} Não basta mencionar "nós" sem deixar claro que é a Localiza — o nome da marca deve aparecer ao menos uma vez.`
       : "";
 
     return { p, selectedKeywords, relatedText, vocabTxt, exemplosSalvos, emojiInstr, hashtagInstr, bulletsInstr, urlInstr, citarInstr };
@@ -1356,8 +1362,13 @@ Avalie "seoScore" e "toneScore".`;
       setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
       localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
       storageAPI({ action: "saveCaption", caption: entry }).catch(() => {});
-      setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
-      setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
+      if (destaque) {
+        setStarredCaption((prev) => ({ ...prev, [platformId]: true }));
+        setTimeout(() => setStarredCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
+      } else {
+        setSavedCaption((prev) => ({ ...prev, [platformId]: true }));
+        setTimeout(() => setSavedCaption((prev) => ({ ...prev, [platformId]: false })), 2000);
+      }
     } catch (e) {
       setError("Não consegui salvar essa legenda agora.");
     } finally {
@@ -2447,6 +2458,67 @@ data-onboard="library-btn"
                     {calView ? "Lista" : "Calendário"}
                   </button>
                 </div>
+
+                {/* Calendário editorial */}
+                {calView && (() => {
+                  const year = calMonth.year, month = calMonth.month;
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const monthNames = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+                  const today = new Date();
+                  const platColor = { instagram: "#E1306C", linkedin: "#0A66C2", tiktok: "#69C9D0", youtube: "#FF0000" };
+                  const byDay = {};
+                  buLibrary.filter(x => x.publishDate).forEach(x => {
+                    const parts = x.publishDate.split("-");
+                    const y = parseInt(parts[0]), m = parseInt(parts[1]) - 1, d = parseInt(parts[2]);
+                    if (y === year && m === month) {
+                      if (!byDay[d]) byDay[d] = [];
+                      byDay[d].push(x);
+                    }
+                  });
+                  return (
+                    <div className="mb-6 rounded-xl border p-4" style={{ borderColor: BORDER, background: "#FAFCFA" }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <button onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month - 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor: BORDER, color: MUTED }}>‹</button>
+                        <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{monthNames[month]} {year}</p>
+                        <button onClick={() => setCalMonth(m => { const d = new Date(m.year, m.month + 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor: BORDER, color: MUTED }}>›</button>
+                      </div>
+                      <div className="grid grid-cols-7 gap-1 mb-2">
+                        {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d => (
+                          <p key={d} className="text-[10px] font-semibold text-center" style={{ color: MUTED }}>{d}</p>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7 gap-1">
+                        {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+                        {Array.from({ length: daysInMonth }).map((_, i) => {
+                          const day = i + 1;
+                          const posts = byDay[day] || [];
+                          const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+                          return (
+                            <div key={day} className="rounded-lg p-1.5 min-h-[48px]" style={{ background: isToday ? LIME_SOFT : "#FFFFFF", border: `1px solid ${isToday ? LIME : BORDER}` }}>
+                              <p className="text-[10px] font-bold mb-1" style={{ color: isToday ? GREEN_DARK : MUTED }}>{day}</p>
+                              {posts.slice(0, 3).map((post, pi) => (
+                                <div key={pi} className="w-full h-1.5 rounded-full mb-0.5" style={{ background: platColor[post.platform] || GREEN }} title={`[${post.platform}] ${post.topico || ""}`} />
+                              ))}
+                              {posts.length > 3 && <p className="text-[8px]" style={{ color: MUTED }}>+{posts.length - 3}</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-3 mt-3 pt-3 border-t" style={{ borderColor: BORDER }}>
+                        {Object.entries(platColor).map(([plat, color]) => (
+                          <div key={plat} className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                            <span className="text-[11px] capitalize" style={{ color: MUTED }}>{plat}</span>
+                          </div>
+                        ))}
+                        {buLibrary.filter(x => x.publishDate).length === 0 && (
+                          <p className="text-[11px] w-full" style={{ color: MUTED }}>Nenhuma legenda com data de publicação ainda. Ao salvar uma legenda, informe a data pra ela aparecer aqui.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).length > 0 && (
                   <div className="mt-6">
                     <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>Títulos YouTube salvos</p>
@@ -2524,7 +2596,7 @@ data-onboard="library-btn"
                         {c.publishDate && (
                           <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: MUTED }}>
                             <Calendar size={11} />
-                            Publicar em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
+                            Gerada em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
                           </p>
                         )}
                         {c.versions?.length > 0 && (
@@ -3132,6 +3204,7 @@ Crie/otimize o título:`,
                                 disabled={savingCaption[p]}
                                 className="ls-btn-ghost flex items-center gap-1.5 text-xs font-medium border rounded-lg px-2.5 py-1.5 bg-white disabled:opacity-60"
                                 style={savedCaption[p] ? { borderColor: GREEN, color: GREEN } : { borderColor: BORDER, color: MUTED }}
+                                title="Salva na biblioteca sem destaque"
                               >
                                 {savingCaption[p] ? <Loader2 size={12} className="animate-spin" /> : savedCaption[p] ? <Check size={12} /> : <Bookmark size={12} />}
                                 {savingCaption[p] ? "Salvando..." : savedCaption[p] ? "Salvo!" : "Salvar"}
@@ -3140,10 +3213,11 @@ Crie/otimize o título:`,
                                 onClick={() => saveCaption(p, true)}
                                 disabled={savingCaption[p]}
                                 className="flex items-center gap-1.5 text-xs font-medium rounded-lg px-2.5 py-1.5 disabled:opacity-60"
-                                style={{ background: savedCaption[p] ? GREEN : LIME_SOFT, color: savedCaption[p] ? "#FFFFFF" : GREEN_DARK, border: `1px solid ${savedCaption[p] ? GREEN : LIME}` }}
+                                style={{ background: starredCaption[p] ? GREEN : LIME_SOFT, color: starredCaption[p] ? "#FFFFFF" : GREEN_DARK, border: `1px solid ${starredCaption[p] ? GREEN : LIME}` }}
+                                title="Salva e destaca como referência pra próximas gerações"
                               >
-                                {savingCaption[p] ? <Loader2 size={12} className="animate-spin" /> : savedCaption[p] ? <Check size={12} /> : <Star size={12} />}
-                                {savingCaption[p] ? "Salvando..." : savedCaption[p] ? "Destacado!" : "Destacar"}
+                                {savingCaption[p] ? <Loader2 size={12} className="animate-spin" /> : starredCaption[p] ? <Check size={12} /> : <Star size={12} />}
+                                {savingCaption[p] ? "Salvando..." : starredCaption[p] ? "Destacado!" : "Destacar"}
                               </button>
                             </div>
                           </div>
