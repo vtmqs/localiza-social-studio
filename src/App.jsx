@@ -605,70 +605,52 @@ function ScoreRing({ label, value }) {
 }
 
 
-function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, isLast }) {
+function OnboardingSpotlight({ step, stepIndex, total, onNext, onPrev, onDone, isLast, navigateTo }) {
   const [targetRect, setTargetRect] = React.useState(null);
   const [popupPos, setPopupPos] = React.useState({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
   const POPUP_W = 300;
-  const POPUP_H = 220; // altura estimada do popup
-  const GAP = 12;
+  const POPUP_H = 240;
+  const GAP = 16;
 
   React.useEffect(() => {
+    // Navega pra página correta antes de buscar o elemento
+    const pageMap = { style: "style", compose: "compose", topic: "compose", generate: "compose", library: "library", chat: "compose" };
+    if (pageMap[step.id] && navigateTo) navigateTo(pageMap[step.id]);
+
     if (!step.target) {
       setTargetRect(null);
       setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
       return;
     }
-    const el = document.querySelector(step.target);
-    if (!el) {
-      setTargetRect(null);
-      setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
-      return;
-    }
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    // Espera o scroll terminar antes de calcular
-    setTimeout(() => {
-      const rect = el.getBoundingClientRect();
-      const r = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
-      setTargetRect(r);
 
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-
-      // Tenta posicionar à direita
-      if (step.position === "right" && r.left + r.width + GAP + POPUP_W < vw) {
-        setPopupPos({
-          top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)),
-          left: r.left + r.width + GAP,
-        });
+    const timer = setTimeout(() => {
+      const el = document.querySelector(step.target);
+      if (!el) {
+        setTargetRect(null);
+        setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
         return;
       }
-      // Tenta posicionar abaixo
-      if ((step.position === "bottom" || step.position === "right") && r.top + r.height + GAP + POPUP_H < vh) {
-        setPopupPos({
-          top: r.top + r.height + GAP,
-          left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)),
-        });
-        return;
-      }
-      // Tenta posicionar acima
-      if (r.top - GAP - POPUP_H > 0) {
-        setPopupPos({
-          top: r.top - POPUP_H - GAP,
-          left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)),
-        });
-        return;
-      }
-      // Tenta posicionar à esquerda
-      if (r.left - GAP - POPUP_W > 0) {
-        setPopupPos({
-          top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)),
-          left: r.left - POPUP_W - GAP,
-        });
-        return;
-      }
-      // Fallback: centro da tela
-      setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => {
+        const rect = el.getBoundingClientRect();
+        const r = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+        setTargetRect(r);
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        if (step.position === "right" && r.left + r.width + GAP + POPUP_W < vw) {
+          setPopupPos({ top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)), left: r.left + r.width + GAP });
+        } else if (r.top + r.height + GAP + POPUP_H < vh) {
+          setPopupPos({ top: r.top + r.height + GAP, left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)) });
+        } else if (r.top - GAP - POPUP_H > 16) {
+          setPopupPos({ top: r.top - POPUP_H - GAP, left: Math.max(16, Math.min(r.left, vw - POPUP_W - 16)) });
+        } else if (r.left - GAP - POPUP_W > 16) {
+          setPopupPos({ top: Math.max(16, Math.min(r.top, vh - POPUP_H - 16)), left: r.left - POPUP_W - GAP });
+        } else {
+          setPopupPos({ top: "50%", left: "50%", transform: "translate(-50%,-50%)" });
+        }
+      }, 400);
     }, 350);
+    return () => clearTimeout(timer);
   }, [step]);
 
   return (
@@ -1131,6 +1113,17 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [page, draft.mode, results, genLoading]);
 
+  // Auto-carrega usuários ao entrar no painel admin
+  useEffect(() => {
+    if (page === "admin" && isAdminUser(currentUser) && adminUsers.length === 0) {
+      setAdminLoading(true);
+      storageAPI({ action: "listUsers" })
+        .then(data => setAdminUsers(data.users || []))
+        .catch(() => {})
+        .finally(() => setAdminLoading(false));
+    }
+  }, [page, currentUser]);
+
   useEffect(() => {
     if (activeBU && !presetsLoaded[activeBU]) loadPresets(activeBU);
     if (activeBU) {
@@ -1195,45 +1188,42 @@ export default function App() {
   const [allUsers, setAllUsers] = useState([]); // cache de usuários pra o modal
 
   const openScoreModal = async (platform, r) => {
-    setScoreModal({ platform, legenda: r.legenda, hashtags: r.hashtags, seoScore: r.seoScore, toneScore: r.toneScore, originalScore: r.originalScore || 0, analysis: null, loading: true });
+    const seo = r.seoScore;
+    const tom = r.toneScore;
+    const orig = r.originalScore || 0;
+    setScoreModal({ platform, legenda: r.legenda, hashtags: r.hashtags, seoScore: seo, toneScore: tom, originalScore: orig, analysis: null, loading: true });
     try {
       const platformLabel = PLATFORMS.find(pl => pl.id === platform)?.label || platform;
       const kws = (draft.keywords || []).map(k => typeof k === "object" ? k.kw : k).join(", ");
+      const p = activeGenPreset || BLANK_PRESET;
       const { text } = await callAI({
-        system: `Você é especialista em SEO para redes sociais e brandvoice. Analise a legenda fornecida e gere uma análise honesta e detalhada em JSON. Seja criterioso — uma legenda comum não merece nota alta. Retorne SOMENTE JSON válido sem markdown.`,
+        system: `Você é especialista em SEO para redes sociais e brandvoice. Analise a legenda e explique de forma honesta e específica os pontos positivos, negativos e como melhorar. NÃO invente scores — use exatamente os valores fornecidos. Retorne SOMENTE JSON válido sem markdown.`,
         prompt: `Legenda para ${platformLabel}:
 "${r.legenda}"
 
 Hashtags: ${(r.hashtags || []).join(", ") || "nenhuma"}
 Keywords alvo: ${kws || "não informadas"}
-Scores atuais — SEO: ${r.seoScore}/100, Tom: ${r.toneScore}/100, Originalidade: ${r.originalScore || 0}/100
+Tom de voz da marca: ${p.tomGeral || "não definido"}
+Regras: ${p.regras?.slice(0, 200) || "não definidas"}
 
-Retorne este JSON exato:
+USE EXATAMENTE estes scores (não altere):
+SEO: ${seo}/100, Tom: ${tom}/100, Originalidade: ${orig}/100
+
+Retorne este JSON:
 {
-  "seo": {
-    "score": ${r.seoScore},
-    "pontos_positivos": ["lista do que está bom"],
-    "pontos_negativos": ["lista do que está faltando ou errado"],
-    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
-  },
-  "tom": {
-    "score": ${r.toneScore},
-    "pontos_positivos": ["lista do que está bom"],
-    "pontos_negativos": ["lista do que está faltando ou errado"],
-    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
-  },
-  "originalidade": {
-    "score": ${r.originalScore || 0},
-    "pontos_positivos": ["lista do que está bom"],
-    "pontos_negativos": ["lista do que está faltando ou errado"],
-    "como_chegar_a_100": ["ações específicas e concretas para melhorar"]
-  },
-  "resumo": "Uma frase direta sobre o estado geral da legenda"
+  "seo": { "score": ${seo}, "pontos_positivos": ["..."], "pontos_negativos": ["..."], "como_chegar_a_100": ["..."] },
+  "tom": { "score": ${tom}, "pontos_positivos": ["..."], "pontos_negativos": ["..."], "como_chegar_a_100": ["..."] },
+  "originalidade": { "score": ${orig}, "pontos_positivos": ["..."], "pontos_negativos": ["..."], "como_chegar_a_100": ["..."] },
+  "resumo": "Uma frase direta sobre o estado geral"
 }`,
         useSearch: false,
       });
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
+      // Garante que os scores do modal nunca mudam — usa sempre os locais
+      if (parsed.seo) parsed.seo.score = seo;
+      if (parsed.tom) parsed.tom.score = tom;
+      if (parsed.originalidade) parsed.originalidade.score = orig;
       setScoreModal(prev => ({ ...prev, analysis: parsed, loading: false }));
     } catch (e) {
       setScoreModal(prev => ({ ...prev, analysis: null, loading: false, error: "Não consegui gerar a análise agora." }));
@@ -2860,6 +2850,7 @@ data-onboard="library-btn"
                       } catch (e) { setError(`Erro ao carregar: ${e.message}`); }
                       finally { setAdminLoading(false); }
                     }}
+                    // Auto-carrega ao montar (via useEffect abaixo)
                     className="px-4 py-2 rounded-lg text-sm font-medium border"
                     style={adminPage === tab ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                   >
@@ -3891,17 +3882,28 @@ Crie/otimize o título:`,
                           </div>
                           <div className="flex items-center justify-between mt-4 pt-4 border-t flex-wrap gap-3" style={{ borderColor: BORDER }}>
                             <div className="flex items-center gap-5">
-                              <button onClick={() => openScoreModal(p, r)} title="Analisar SEO" className="hover:opacity-75 transition-opacity">
-                                <ScoreRing label="SEO" value={r.seoScore} />
-                              </button>
-                              <button onClick={() => openScoreModal(p, r)} title="Analisar Tom" className="hover:opacity-75 transition-opacity">
-                                <ScoreRing label="Tom" value={r.toneScore} />
-                              </button>
-                              <button onClick={() => openScoreModal(p, r)} title="Analisar Originalidade" className="hover:opacity-75 transition-opacity">
-                                <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
-                              </button>
+                              {draft.mode === "otimizar" ? (
+                                <>
+                                  <button onClick={() => openScoreModal(p, r)} title="Analisar SEO" className="hover:opacity-75 transition-opacity">
+                                    <ScoreRing label="SEO" value={r.seoScore} />
+                                  </button>
+                                  <button onClick={() => openScoreModal(p, r)} title="Analisar Tom" className="hover:opacity-75 transition-opacity">
+                                    <ScoreRing label="Tom" value={r.toneScore} />
+                                  </button>
+                                  <button onClick={() => openScoreModal(p, r)} title="Analisar Originalidade" className="hover:opacity-75 transition-opacity">
+                                    <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <ScoreRing label="SEO" value={r.seoScore} />
+                                  <ScoreRing label="Tom" value={r.toneScore} />
+                                  <ScoreRing label="Original" value={r.originalScore || 0} color="#7C3AED" />
+                                </>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
+                              {draft.mode === "otimizar" && (
                               <button
                                 onClick={() => reanalyzeCaption(p)}
                                 disabled={reanalyzing[p]}
@@ -3910,7 +3912,7 @@ Crie/otimize o título:`,
                               >
                                 {reanalyzing[p] ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
                                 Reanalisar
-                              </button>
+                              </button>)}
                               <button
                                 onClick={() => saveCaption(p, false)}
                                 disabled={savingCaption[p]}
@@ -4148,6 +4150,7 @@ Crie/otimize o título:`,
         onPrev={() => setOnboardStep(s => s - 1)}
         onDone={onboardDone}
         isLast={onboardStep === ONBOARDING_STEPS.length - 1}
+        navigateTo={(pg) => setPage(pg)}
       />
     )}
 
