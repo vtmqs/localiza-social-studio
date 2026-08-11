@@ -39,8 +39,6 @@ import {
   Eye,
   Download,
   Calendar,
-  Sun,
-  Moon,
 } from "lucide-react";
 
 const GREEN = "#01652A";
@@ -239,39 +237,6 @@ function renderLegenda(text) {
 }
 
 
-// ---- TEMA ESCURO ----
-
-
-function useTheme() {
-  const [dark, setDark] = React.useState(() => {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
-  React.useEffect(() => {
-    // Aplica/remove classe "dark" no <html> — o CSS cuida do resto
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
-
-  React.useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e) => {
-      if (!localStorage.getItem("theme")) setDark(e.matches);
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  const toggle = () => {
-    setDark(d => {
-      localStorage.setItem("theme", !d ? "dark" : "light");
-      return !d;
-    });
-  };
-
-  return { dark, toggle };
-}
 
 
 const ONBOARDING_STEPS = [
@@ -384,98 +349,7 @@ const GlobalStyle = () => (
     .ls-bu-row:hover .ls-bu-number { color: ${LIME} !important; transform: translateX(3px); }
     .ls-mode-tab { transition: background .15s ease, color .15s ease; }
 
-    /* ============ DARK MODE ============ */
-    /* Paleta: verde profundo confortável, textos claros */
-    :root {
-      --dk-bg:      #18221e;  /* fundo geral */
-      --dk-surface: #1f2d28;  /* superfície leve */
-      --dk-card:    #243029;  /* cards e painéis */
-      --dk-input:   #1c2924;  /* inputs */
-      --dk-border:  #3a4f44;  /* bordas */
-      --dk-text:    #e4f0e8;  /* texto principal */
-      --dk-muted:   #9dbfaa;  /* texto secundário */
-      --dk-green:   #86efac;  /* verde claro (acentos) */
-      --dk-lime:    #a3e635;  /* lime adaptado */
-    }
-
-    /* Fundo geral e superfícies */
-    html.dark body { background: var(--dk-bg) !important; color: var(--dk-text) !important; }
-    html.dark * { border-color: var(--dk-border); }
-
-    /* Todo texto escuro → claro */
-    html.dark *:not(svg):not(path):not(circle):not(rect) {
-      color: var(--dk-text);
-    }
-
-    /* Exceções: textos de acento verde */
-    html.dark [style*="color: #01652A"],
-    html.dark [style*="color: #014A1F"],
-    html.dark [style*="color: #013318"],
-    html.dark [style*="color: GREEN"] { color: var(--dk-green) !important; }
-
-    /* Texto secundário/mutado */
-    html.dark [style*="color: #5B6B60"],
-    html.dark [style*="color: #8B"],
-    html.dark .ls-check-label { color: var(--dk-text) !important; }
-    html.dark [style*="color: MUTED"] { color: var(--dk-muted) !important; }
-
-    /* Alertas e erros */
-    html.dark [style*="color: #8A3A1F"],
-    html.dark [style*="color: #5B3A2F"] { color: #f8a88a !important; }
-    html.dark [style*="color: #8A6A1F"] { color: #f5d08a !important; }
-    html.dark [style*="background"][style*="#FBEDE7"] { background: rgba(200,80,60,0.18) !important; }
-
-    /* Backgrounds: branco → card dark */
-    html.dark [style*="background: #FFFFFF"],
-    html.dark [style*='background: "#FFFFFF"'],
-    html.dark [style*="background: rgb(255, 255, 255)"],
-    html.dark .bg-white { background: var(--dk-card) !important; }
-
-    /* Superfícies claras */
-    html.dark [style*="background: #F6F9F6"],
-    html.dark [style*="background: #FAFAFA"],
-    html.dark [style*="background: #F3F4F6"],
-    html.dark [style*="background: #f9f9f9"],
-    html.dark [style*="background: #f3f6f8"] { background: var(--dk-surface) !important; }
-
-    /* LIME_SOFT e destaques verdes */
-    html.dark [style*="background: #EAF9DC"],
-    html.dark [style*="background: LIME_SOFT"] { background: rgba(163,230,53,0.12) !important; }
-
-    /* Inputs, textareas, selects */
-    html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="date"]),
-    html.dark textarea,
-    html.dark select {
-      background: var(--dk-input) !important;
-      color: var(--dk-text) !important;
-      border-color: var(--dk-border) !important;
-    }
-    html.dark input::placeholder,
-    html.dark textarea::placeholder { color: var(--dk-muted) !important; opacity: 1; }
-
-    /* Header sticky */
-    html.dark .sticky { background: var(--dk-card) !important; border-color: var(--dk-border) !important; }
-
-    /* Modais e dropdowns */
-    html.dark [class*="shadow-2xl"],
-    html.dark [class*="shadow-xl"] { background: var(--dk-card) !important; }
-
-    /* Nav items */
-    html.dark .ls-nav-item.active { background: rgba(255,255,255,0.10) !important; color: #fff !important; }
-    html.dark .ls-nav-item.active::before { background: var(--dk-lime) !important; }
-    html.dark .ls-preset-item:hover { background: var(--dk-surface) !important; }
-    html.dark .ls-preset-item.active { background: rgba(163,230,53,0.10) !important; border-color: var(--dk-lime) !important; }
-    html.dark .ls-btn-ghost:hover { border-color: var(--dk-green) !important; color: var(--dk-green) !important; }
-
-    /* Chips de qualidade KW */
-    html.dark [style*="#DCFCE7"] { background: rgba(74,222,128,0.15) !important; color: #86efac !important; }
-    html.dark [style*="#FEF3C7"] { background: rgba(250,204,21,0.15) !important; color: #fde68a !important; }
-    html.dark [style*="#FEE2E2"] { background: rgba(248,113,113,0.15) !important; color: #fca5a5 !important; }
-
-    /* Scrollbar */
-    html.dark * { scrollbar-color: var(--dk-border) transparent; }
-
-      `}</style>
+  `}</style>
 );
 
 function Chip({ children, onRemove, tone = "default" }) {
@@ -703,10 +577,6 @@ export default function App() {
   const [adminPresets, setAdminPresets] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
 
-  // Tema
-  const { dark, toggle: toggleDark } = useTheme();
-  // T é um alias inerte no modo claro — no dark, CSS vars cuidam de tudo
-  const T = { BG, TEXT, MUTED, BORDER, CARD: "#FFFFFF", INPUT: "#FFFFFF", SURFACE: "#F6F9F6", HIGHLIGHT: "#EAF9DC", LIME_DARK: LIME };
 
   // Onboarding
   const [onboardStep, setOnboardStep] = useState(-1); // inicia desligado, ativa ao entrar na primeira BU
@@ -1512,7 +1382,7 @@ Avalie "seoScore" e "toneScore".`;
     }
   };
 
-  const inputStyle = { background: T.INPUT, color: T.TEXT, borderColor: T.BORDER };
+  const inputStyle = { background: "#FFFFFF", color: TEXT, borderColor: BORDER };
   const inputClass = "ls-input w-full text-sm border rounded-lg px-3 py-2.5";
 
   // ---------- SENHA ----------
@@ -1531,7 +1401,7 @@ Avalie "seoScore" e "toneScore".`;
           <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">
             Social Studio
           </h1>
-          <p className="text-sm text-center mb-5" style={{ color: T.MUTED }}>
+          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>
             Acesso restrito ao time de conteúdo
           </p>
           <input
@@ -1590,16 +1460,16 @@ Avalie "seoScore" e "toneScore".`;
         <GlobalStyle />
         <div className="w-full max-w-sm bg-white rounded-2xl p-7" style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}>
           <h1 style={{ fontFamily: "Georgia, serif", color: GREEN }} className="text-2xl mb-1 text-center">Social Studio</h1>
-          <p className="text-sm text-center mb-5" style={{ color: T.MUTED }}>Acesso restrito ao time de conteúdo</p>
+          <p className="text-sm text-center mb-5" style={{ color: MUTED }}>Acesso restrito ao time de conteúdo</p>
 
           {/* Tabs */}
-          <div className="flex rounded-lg overflow-hidden border mb-5" style={{ borderColor: T.BORDER }}>
+          <div className="flex rounded-lg overflow-hidden border mb-5" style={{ borderColor: BORDER }}>
             {[["login", "Entrar"], ["register", "Criar conta"]].map(([mode, label]) => (
               <button
                 key={mode}
                 onClick={() => { setAuthMode(mode); setLoginError(""); setRegError(""); }}
                 className="flex-1 py-2 text-sm font-medium transition-colors"
-                style={authMode === mode ? { background: GREEN, color: "#FFF" } : { background: T.INPUT, color: T.MUTED }}
+                style={authMode === mode ? { background: GREEN, color: "#FFF" } : { background: "#FFFFFF", color: MUTED }}
               >
                 {label}
               </button>
@@ -1608,7 +1478,7 @@ Avalie "seoScore" e "toneScore".`;
 
           {authMode === "login" ? (
             <>
-              <label className="text-xs font-semibold block mb-1" style={{ color: T.MUTED }}>Email</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Email</label>
               <input
                 type="email"
                 value={regEmail}
@@ -1619,7 +1489,7 @@ Avalie "seoScore" e "toneScore".`;
                 style={{ marginBottom: 12 }}
                 autoFocus
               />
-              <label className="text-xs font-semibold block mb-1" style={{ color: T.MUTED }}>Senha pessoal</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
               <input
                 id="login-pwd-input"
                 type="password"
@@ -1640,7 +1510,7 @@ Avalie "seoScore" e "toneScore".`;
             </>
           ) : (
             <>
-              <label className="text-xs font-semibold block mb-1" style={{ color: T.MUTED }}>Email</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Email</label>
               <input
                 type="email"
                 value={regEmail}
@@ -1650,7 +1520,7 @@ Avalie "seoScore" e "toneScore".`;
                 style={{ marginBottom: 12 }}
                 autoFocus
               />
-              <label className="text-xs font-semibold block mb-1" style={{ color: T.MUTED }}>Nome de exibição</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Nome de exibição</label>
               <input
                 type="text"
                 value={regName}
@@ -1659,7 +1529,7 @@ Avalie "seoScore" e "toneScore".`;
                 className={inputClass}
                 style={{ marginBottom: 12 }}
               />
-              <label className="text-xs font-semibold block mb-1" style={{ color: T.MUTED }}>Senha pessoal</label>
+              <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Senha pessoal</label>
               <input
                 type="password"
                 value={regPwd}
@@ -1752,7 +1622,7 @@ Avalie "seoScore" e "toneScore".`;
 
   // ---------- WORKSPACE ----------
   return (
-    <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: T.BG, color: T.TEXT, fontFamily: "system-ui, sans-serif", transition: "background 0.2s, color 0.2s" }}>
+    <><div translate="no" className="min-h-screen flex flex-col md:flex-row notranslate" style={{ background: BG, color: TEXT, fontFamily: "system-ui, sans-serif", transition: "background 0.2s, color 0.2s" }}>
       <GlobalStyle />
       {/* Overlay mobile quando menu aberto */}
       {mobileMenuOpen && (
@@ -1868,16 +1738,7 @@ data-onboard="library-btn"
               <p className="text-white/80 text-xs font-medium">{currentUser.name}</p>
             </div>
           )}
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={toggleDark}
-              className="flex items-center gap-1.5 text-white/50 text-xs hover:text-white/80 transition-colors"
-              title={dark ? "Mudar para claro" : "Mudar para escuro"}
-            >
-              {dark ? <Sun size={13} /> : <Moon size={13} />}
-              {dark ? "Modo claro" : "Modo escuro"}
-            </button>
-          </div>
+
           <button
             onClick={async () => {
               storage.set("current-user", "");
@@ -1896,10 +1757,10 @@ data-onboard="library-btn"
       </aside>
 
       <main className="flex-1 overflow-y-auto">
-        <div className="sticky top-0 z-10 border-b px-4 sm:px-8 py-4" style={{ borderColor: T.BORDER, background: T.CARD }}>
+        <div className="sticky top-0 z-10 border-b px-4 sm:px-8 py-4" style={{ borderColor: BORDER, background: "#FFFFFF" }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-medium tracking-wide" style={{ color: T.MUTED }}>{bu.label}</p>
+              <p className="text-[11px] font-medium tracking-wide" style={{ color: MUTED }}>{bu.label}</p>
               <h2 className="text-lg font-semibold">
                 {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : "Legendas salvas"}
               </h2>
@@ -1918,7 +1779,7 @@ data-onboard="library-btn"
                 }}
                 className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <Bell size={18} style={{ color: T.MUTED }} />
+                <Bell size={18} style={{ color: MUTED }} />
                 {notifications.filter(n => !notifSeen[n.id]).length > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center text-white" style={{ background: "#EF4444" }}>
                     {Math.min(notifications.filter(n => !notifSeen[n.id]).length, 9)}
@@ -1927,22 +1788,22 @@ data-onboard="library-btn"
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: T.BORDER }}>
-                  <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: T.BORDER }}>
+                <div className="absolute right-0 top-full mt-2 w-80 rounded-xl shadow-2xl border z-50 overflow-hidden" style={{ borderColor: BORDER }}>
+                  <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
                     <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>Atividade em {bu.label}</p>
                     <button onClick={() => setNotifOpen(false)}>
-                      <X size={14} style={{ color: T.MUTED }} />
+                      <X size={14} style={{ color: MUTED }} />
                     </button>
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
-                      <p className="text-sm px-4 py-6 text-center" style={{ color: T.MUTED }}>Nenhuma atividade ainda.</p>
+                      <p className="text-sm px-4 py-6 text-center" style={{ color: MUTED }}>Nenhuma atividade ainda.</p>
                     ) : (
                       notifications.map(n => (
-                        <div key={n.id} className="px-4 py-3 border-b hover:bg-gray-50" style={{ borderColor: T.BORDER, background: notifSeen[n.id] ? "#FFF" : "#F0FFF4" }}>
+                        <div key={n.id} className="px-4 py-3 border-b hover:bg-gray-50" style={{ borderColor: BORDER, background: notifSeen[n.id] ? "#FFF" : "#F0FFF4" }}>
                           <p className="text-xs font-semibold" style={{ color: GREEN_DARK }}>{n.userName}</p>
-                          <p className="text-xs mt-0.5" style={{ color: T.TEXT }}>{n.description}</p>
-                          <p className="text-[10px] mt-1" style={{ color: T.MUTED }}>
+                          <p className="text-xs mt-0.5" style={{ color: TEXT }}>{n.description}</p>
+                          <p className="text-[10px] mt-1" style={{ color: MUTED }}>
                             {new Date(n.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                           </p>
                         </div>
@@ -1956,7 +1817,7 @@ data-onboard="library-btn"
                         .catch(() => {});
                     }}
                     className="w-full py-2 text-xs text-center hover:bg-gray-50 transition-colors"
-                    style={{ color: T.MUTED }}
+                    style={{ color: MUTED }}
                   >
                     Atualizar
                   </button>
@@ -1973,14 +1834,14 @@ data-onboard="library-btn"
                 <button
                   onClick={startNewPreset}
                   className="ls-btn-ghost w-full flex items-center justify-center gap-1.5 text-xs font-medium border rounded-lg py-2 mb-2 bg-white"
-                  style={{ borderColor: T.BORDER, color: T.MUTED }}
+                  style={{ borderColor: BORDER, color: MUTED }}
                 >
                   <Plus size={14} />
                   Novo estilo
                 </button>
                 <label
                   className="ls-btn-ghost w-full flex items-center justify-center gap-1.5 text-xs font-medium border rounded-lg py-2 mb-3 bg-white cursor-pointer"
-                  style={{ borderColor: T.BORDER, color: T.MUTED }}
+                  style={{ borderColor: BORDER, color: MUTED }}
                   title="Importe um template .docx preenchido"
                 >
                   <Upload size={14} />
@@ -2044,7 +1905,7 @@ data-onboard="library-btn"
                 </label>
                 <div className="space-y-1.5">
                   {buPresets.length === 0 && (
-                    <p className="text-xs leading-relaxed" style={{ color: T.MUTED }}>
+                    <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
                       Nenhum estilo salvo ainda pra {bu.label}. Crie o primeiro ao lado.
                     </p>
                   )}
@@ -2055,7 +1916,7 @@ data-onboard="library-btn"
                       className={`ls-preset-item flex items-center justify-between gap-2 px-3 py-2 rounded-lg border cursor-pointer ${editingId === p.id ? "active" : ""}`}
                       style={{ borderColor: editingId === p.id ? LIME : BORDER }}
                     >
-                      <span className="text-sm font-medium truncate" style={{ color: T.TEXT }}>
+                      <span className="text-sm font-medium truncate" style={{ color: TEXT }}>
                         {p.title}
                       </span>
                       <button
@@ -2074,9 +1935,9 @@ data-onboard="library-btn"
               </div>
 
               <div>
-                <div className="ls-card bg-white border rounded-2xl p-6 space-y-6" style={{ borderColor: T.BORDER }}>
+                <div className="ls-card bg-white border rounded-2xl p-6 space-y-6" style={{ borderColor: BORDER }}>
                   <div>
-                    <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-1.5" style={{ color: T.MUTED }}>
+                    <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-1.5" style={{ color: MUTED }}>
                       <PenLine size={13} />
                       Título do estilo
                     </label>
@@ -2134,15 +1995,15 @@ data-onboard="library-btn"
                     {(formPreset.vocabulario || []).length > 0 && (
                       <ol className="space-y-1 mb-2 pl-1">
                         {formPreset.vocabulario.map((v, i) => (
-                          <li key={i} className="flex items-center gap-2 text-sm rounded-lg border px-3 py-1.5" style={{ borderColor: T.BORDER, background: T.SURFACE }}>
+                          <li key={i} className="flex items-center gap-2 text-sm rounded-lg border px-3 py-1.5" style={{ borderColor: BORDER, background: "#F6F9F6" }}>
                             <span className="font-semibold w-5 shrink-0" style={{ color: GREEN }}>
                               {i + 1}.
                             </span>
-                            <span className="flex-1" style={{ color: T.TEXT }}>
+                            <span className="flex-1" style={{ color: TEXT }}>
                               {v}
                             </span>
                             <button onClick={() => removeVocab(i)} className="ls-chip-x shrink-0" aria-label="Remover">
-                              <X size={13} style={{ color: T.MUTED }} />
+                              <X size={13} style={{ color: MUTED }} />
                             </button>
                           </li>
                         ))}
@@ -2164,7 +2025,7 @@ data-onboard="library-btn"
                           setVocabInput("");
                         }}
                         className="ls-btn-ghost px-3 rounded-lg border bg-white shrink-0"
-                        style={{ borderColor: T.BORDER, color: T.MUTED }}
+                        style={{ borderColor: BORDER, color: MUTED }}
                         aria-label="Adicionar"
                       >
                         <Plus size={16} />
@@ -2173,7 +2034,7 @@ data-onboard="library-btn"
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-1.5" style={{ color: T.MUTED }}>
+                    <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-1.5" style={{ color: MUTED }}>
                       <Users size={13} />
                       Referências (até 5): marque se é concorrente ou inspiração
                     </label>
@@ -2184,13 +2045,13 @@ data-onboard="library-btn"
                           className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-medium"
                           style={
                             c.tipo === "inspiracao"
-                              ? { background: T.HIGHLIGHT, borderColor: LIME, color: GREEN_DARK }
-                              : { background: T.CARD, borderColor: T.BORDER, color: T.TEXT }
+                              ? { background: LIME_SOFT, borderColor: LIME, color: GREEN_DARK }
+                              : { background: "#FFFFFF", borderColor: BORDER, color: TEXT }
                           }
                         >
                           <span
                             className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full"
-                            style={c.tipo === "inspiracao" ? { background: LIME, color: GREEN_DEEPER } : { background: "#EDEFEC", color: T.MUTED }}
+                            style={c.tipo === "inspiracao" ? { background: LIME, color: GREEN_DEEPER } : { background: "#EDEFEC", color: MUTED }}
                           >
                             {c.tipo === "inspiracao" ? "Insp." : "Conc."}
                           </span>
@@ -2210,18 +2071,18 @@ data-onboard="library-btn"
                         disabled={(formPreset.concorrentes || []).length >= 5}
                         className={`${inputClass} flex-1 min-w-[160px] disabled:opacity-50`}
                       />
-                      <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: T.BORDER }}>
+                      <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: BORDER }}>
                         <button
                           onClick={() => setConcorrenteTipo("concorrente")}
                           className="ls-mode-tab text-xs font-medium px-3"
-                          style={concorrenteTipo === "concorrente" ? { background: GREEN, color: "#FFFFFF" } : { background: T.CARD, color: T.MUTED }}
+                          style={concorrenteTipo === "concorrente" ? { background: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", color: MUTED }}
                         >
                           Concorrente
                         </button>
                         <button
                           onClick={() => setConcorrenteTipo("inspiracao")}
                           className="ls-mode-tab text-xs font-medium px-3"
-                          style={concorrenteTipo === "inspiracao" ? { background: GREEN, color: "#FFFFFF" } : { background: T.CARD, color: T.MUTED }}
+                          style={concorrenteTipo === "inspiracao" ? { background: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", color: MUTED }}
                         >
                           Inspiração
                         </button>
@@ -2230,7 +2091,7 @@ data-onboard="library-btn"
                         onClick={addConcorrente}
                         disabled={(formPreset.concorrentes || []).length >= 5}
                         className="ls-btn-ghost px-3 rounded-lg border bg-white disabled:opacity-50"
-                        style={{ borderColor: T.BORDER, color: T.MUTED }}
+                        style={{ borderColor: BORDER, color: MUTED }}
                         aria-label="Adicionar"
                       >
                         <Plus size={16} />
@@ -2239,13 +2100,13 @@ data-onboard="library-btn"
                         onClick={runBenchmark}
                         disabled={benchLoading}
                         className="ls-btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border disabled:opacity-60 whitespace-nowrap"
-                        style={{ background: T.HIGHLIGHT, color: GREEN_DARK, borderColor: LIME }}
+                        style={{ background: LIME_SOFT, color: GREEN_DARK, borderColor: LIME }}
                       >
                         {benchLoading ? <Loader2 size={14} className="animate-spin" /> : <BarChart3 size={14} />}
                         Analisar
                       </button>
                     </div>
-                    <p className="text-[11px] mb-2 leading-relaxed" style={{ color: T.MUTED }}>
+                    <p className="text-[11px] mb-2 leading-relaxed" style={{ color: MUTED }}>
                       Concorrente = posicionamento (nunca copiar tom). Inspiração = referência direta de como escrever.
                     </p>
                     {formPreset.insights && (
@@ -2296,7 +2157,7 @@ data-onboard="library-btn"
                   )}
 
                   <div className="mb-4">
-                    <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: T.MUTED }}>Visibilidade do estilo</label>
+                    <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>Visibilidade do estilo</label>
                     <div className="flex gap-2">
                       {[
                         { id: "public", label: "Público", desc: "Todos do time veem" },
@@ -2309,7 +2170,7 @@ data-onboard="library-btn"
                           className="flex-1 text-xs font-medium rounded-lg py-2 px-3 border text-left disabled:opacity-50"
                           style={presetVisibility === opt.id
                             ? { background: GREEN, color: "#FFF", borderColor: GREEN }
-                            : { background: T.INPUT, color: T.MUTED, borderColor: T.BORDER }}
+                            : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                         >
                           <div className="font-semibold">{opt.label}</div>
                           <div className="opacity-75">{opt.desc}</div>
@@ -2335,7 +2196,7 @@ data-onboard="library-btn"
           {page === "admin" && isAdminUser(currentUser) && (
             <div>
               <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Painel Admin</h2>
-              <p className="text-sm mb-4" style={{ color: T.MUTED }}>
+              <p className="text-sm mb-4" style={{ color: MUTED }}>
                 {currentUser?.email === OWNER_EMAIL ? "Proprietário" : "Administrador"} · acesso total
               </p>
 
@@ -2358,7 +2219,7 @@ data-onboard="library-btn"
                       finally { setAdminLoading(false); }
                     }}
                     className="px-4 py-2 rounded-lg text-sm font-medium border"
-                    style={adminPage === tab ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: T.INPUT, color: T.MUTED, borderColor: T.BORDER }}
+                    style={adminPage === tab ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                   >
                     {tab === "users" ? "Usuários" : "Estilos"}
                   </button>
@@ -2378,26 +2239,26 @@ data-onboard="library-btn"
                     finally { setAdminLoading(false); }
                   }}
                   className="px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: T.BORDER, color: T.MUTED }}
+                  style={{ borderColor: BORDER, color: MUTED }}
                 >
                   {adminLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                 </button>
               </div>
 
-              {adminLoading && <p className="text-sm" style={{ color: T.MUTED }}>Carregando...</p>}
+              {adminLoading && <p className="text-sm" style={{ color: MUTED }}>Carregando...</p>}
 
               {!adminLoading && adminPage === "users" && (
                 <div className="space-y-2">
-                  {adminUsers.length === 0 && <p className="text-sm" style={{ color: T.MUTED }}>Nenhum usuário ainda. Clique em "Usuários" pra carregar.</p>}
+                  {adminUsers.length === 0 && <p className="text-sm" style={{ color: MUTED }}>Nenhum usuário ainda. Clique em "Usuários" pra carregar.</p>}
                   {adminUsers.map((u) => (
-                    <div key={u.hash} className="border rounded-xl p-4 flex items-center justify-between gap-3" style={{ borderColor: T.BORDER }}>
+                    <div key={u.hash} className="border rounded-xl p-4 flex items-center justify-between gap-3" style={{ borderColor: BORDER }}>
                       <div>
                         <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{u.name}</p>
-                        <p className="text-xs" style={{ color: T.MUTED }}>{u.email}</p>
+                        <p className="text-xs" style={{ color: MUTED }}>{u.email}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] px-2 py-0.5 rounded-full font-medium"
-                          style={u.email === OWNER_EMAIL ? { background: "#FEF9C3", color: "#92400E" } : u.role === "admin" ? { background: "#DCFCE7", color: GREEN_DARK } : { background: T.SURFACE, color: T.MUTED }}>
+                          style={u.email === OWNER_EMAIL ? { background: "#FEF9C3", color: "#92400E" } : u.role === "admin" ? { background: "#DCFCE7", color: GREEN_DARK } : { background: "#F6F9F6", color: MUTED }}>
                           {u.email === OWNER_EMAIL ? "Proprietário" : u.role === "admin" ? "Admin" : "Usuário"}
                         </span>
                         {currentUser?.email === OWNER_EMAIL && u.email !== OWNER_EMAIL && (
@@ -2410,7 +2271,7 @@ data-onboard="library-btn"
                               } catch (e) { setError(`Erro: ${e.message}`); }
                             }}
                             className="text-xs px-2 py-1 rounded border"
-                            style={{ borderColor: T.BORDER, color: T.MUTED }}
+                            style={{ borderColor: BORDER, color: MUTED }}
                           >
                             {u.role === "admin" ? "Revogar admin" : "Tornar admin"}
                           </button>
@@ -2423,13 +2284,13 @@ data-onboard="library-btn"
 
               {!adminLoading && adminPage === "presets" && (
                 <div className="space-y-2">
-                  {adminPresets.length === 0 && <p className="text-sm" style={{ color: T.MUTED }}>Nenhum estilo ainda. Clique em "Estilos" pra carregar.</p>}
+                  {adminPresets.length === 0 && <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo ainda. Clique em "Estilos" pra carregar.</p>}
                   {adminPresets.map((p) => (
-                    <div key={p.id} className="border rounded-xl p-4" style={{ borderColor: T.BORDER }}>
+                    <div key={p.id} className="border rounded-xl p-4" style={{ borderColor: BORDER }}>
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{p.title || "(sem título)"}</p>
-                          <p className="text-[11px] mt-0.5" style={{ color: T.MUTED }}>
+                          <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
                             BU: {p._bu} · Criado por: {p.createdBy || "?"} ·
                             <span className="ml-1" style={{ color: p._visibility === "public" ? GREEN_DARK : MUTED }}>
                               {p._visibility === "public" ? "Público" : "Privado"}
@@ -2446,7 +2307,7 @@ data-onboard="library-btn"
                               } catch (e) { setError(`Erro: ${e.message}`); }
                             }}
                             className="text-[11px] px-2 py-1 rounded border"
-                            style={{ borderColor: T.BORDER, color: T.MUTED }}
+                            style={{ borderColor: BORDER, color: MUTED }}
                           >
                             {p._visibility === "public" ? "Tornar privado" : "Tornar público"}
                           </button>
@@ -2475,10 +2336,10 @@ data-onboard="library-btn"
           {page === "presets-list" && (
             <div>
               <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Estilos criados</h2>
-              <p className="text-sm mb-5" style={{ color: T.MUTED }}>Clique em um estilo pra usá-lo na geração de legendas.</p>
+              <p className="text-sm mb-5" style={{ color: MUTED }}>Clique em um estilo pra usá-lo na geração de legendas.</p>
               {buPresets.length === 0 ? (
                 <>
-                <p className="text-sm" style={{ color: T.MUTED }}>Nenhum estilo criado ainda pra {bu.label}.</p>
+                <p className="text-sm" style={{ color: MUTED }}>Nenhum estilo criado ainda pra {bu.label}.</p>
                 <button
                   onClick={() => { setPage("style"); startNewPreset(); }}
                   style={{ background: GREEN }}
@@ -2502,9 +2363,9 @@ data-onboard="library-btn"
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold" style={{ color: GREEN_DARK }}>{p.title}</p>
-                            <p className="text-[11px] mt-0.5" style={{ color: T.MUTED }}>
+                            <p className="text-[11px] mt-0.5" style={{ color: MUTED }}>
                               Criado por <span className="font-medium">{p.createdBy || "Anônimo"}</span>
-                              {p.visibility === "private" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#F0F4F3", color: T.MUTED }}>Privado</span>}
+                              {p.visibility === "private" && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: "#F0F4F3", color: MUTED }}>Privado</span>}
                             </p>
                           </div>
                           <div className="flex gap-1.5 shrink-0">
@@ -2512,7 +2373,7 @@ data-onboard="library-btn"
                               <button
                                 onClick={(e) => { e.stopPropagation(); selectPresetForEdit(p); setPage("style"); }}
                                 className="text-[11px] px-2 py-1 rounded border"
-                                style={{ borderColor: T.BORDER, color: T.MUTED }}
+                                style={{ borderColor: BORDER, color: MUTED }}
                               >
                                 Editar
                               </button>
@@ -2526,7 +2387,7 @@ data-onboard="library-btn"
                             </button>
                           </div>
                         </div>
-                        {p.regras && <p className="text-[11px] mt-2 line-clamp-2" style={{ color: T.MUTED }}>{p.regras}</p>}
+                        {p.regras && <p className="text-[11px] mt-2 line-clamp-2" style={{ color: MUTED }}>{p.regras}</p>}
                       </div>
                     );
                   })}
@@ -2537,7 +2398,7 @@ data-onboard="library-btn"
 
           {page === "library" && (
             <div>
-              <p className="text-sm mb-2" style={{ color: T.MUTED }}>
+              <p className="text-sm mb-2" style={{ color: MUTED }}>
                 Legendas salvas de {bu.label}. As destacadas (⭐) têm mais peso como exemplo pra próxima geração.
 
                 <div className="flex flex-wrap gap-2 mt-4 mb-2">
@@ -2547,13 +2408,13 @@ data-onboard="library-btn"
                     onChange={e => setLibrarySearch(e.target.value)}
                     placeholder="Buscar nas legendas..."
                     className="flex-1 text-sm border rounded-lg px-3 py-2"
-                    style={{ borderColor: T.BORDER, background: T.INPUT, color: T.TEXT, minWidth: 160 }}
+                    style={{ borderColor: BORDER, background: "#FFFFFF", color: TEXT, minWidth: 160 }}
                   />
                   <select
                     value={libraryFilter}
                     onChange={e => setLibraryFilter(e.target.value)}
                     className="text-sm border rounded-lg px-2 py-2"
-                    style={{ borderColor: T.BORDER, background: T.INPUT, color: T.TEXT }}
+                    style={{ borderColor: BORDER, background: "#FFFFFF", color: TEXT }}
                   >
                     <option value="all">Todas as redes</option>
                     <option value="instagram">Instagram</option>
@@ -2565,7 +2426,7 @@ data-onboard="library-btn"
                   <button
                     onClick={() => setCalView(v => !v)}
                     className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border"
-                    style={calView ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: T.BORDER, color: T.MUTED, background: T.INPUT }}
+                    style={calView ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: BORDER, color: MUTED, background: "#FFFFFF" }}
                   >
                     <Calendar size={14} />
                     {calView ? "Lista" : "Calendário"}
@@ -2573,11 +2434,11 @@ data-onboard="library-btn"
                 </div>
                 {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).length > 0 && (
                   <div className="mt-6">
-                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: T.MUTED }}>Títulos YouTube salvos</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: MUTED }}>Títulos YouTube salvos</p>
                     <div className="space-y-2">
                       {buLibrary.filter(c => c.platform === "youtube" && c.titulo_youtube).map(c => (
                         <div key={c.id + "-title"} className="flex items-center justify-between gap-2 bg-white border rounded-lg px-3 py-2" style={{ borderColor: c.destaqueTitle ? LIME : BORDER }}>
-                          <p className="text-sm flex-1" style={{ color: T.TEXT }}>{c.titulo_youtube}</p>
+                          <p className="text-sm flex-1" style={{ color: TEXT }}>{c.titulo_youtube}</p>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               onClick={() => {
@@ -2599,7 +2460,7 @@ data-onboard="library-btn"
                 )}
               </p>
               {buLibrary.length === 0 ? (
-                <p className="text-sm" style={{ color: T.MUTED }}>
+                <p className="text-sm" style={{ color: MUTED }}>
                   Nenhuma legenda salva ainda. Na tela "Nova legenda", depois de gerar, use os botões "Salvar" ou "Destacar".
                 </p>
               ) : (
@@ -2613,7 +2474,7 @@ data-onboard="library-btn"
                             <Icon size={15} />
                             {PLATFORMS.find((pl) => pl.id === c.platform)?.label || c.platform}
                             {c.presetTitle && (
-                              <span className="text-xs font-normal" style={{ color: T.MUTED }}>
+                              <span className="text-xs font-normal" style={{ color: MUTED }}>
                                 · {c.presetTitle}
                               </span>
                             )}
@@ -2629,7 +2490,7 @@ data-onboard="library-btn"
                               className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
                               style={c.visibility === "public"
                                 ? { background: "#EAF9DC", color: GREEN_DARK, borderColor: LIME }
-                                : { background: T.BG, color: T.MUTED, borderColor: T.BORDER }}
+                                : { background: BG, color: MUTED, borderColor: BORDER }}
                               title={c.visibility === "public" ? "Pública: clique pra tornar privada" : "Privada: clique pra tornar pública"}
                             >
                               {c.visibility === "public" ? "Pública" : "Privada"}
@@ -2642,22 +2503,22 @@ data-onboard="library-btn"
                             </button>
                           </div>
                         </div>
-                        <div className="text-sm leading-relaxed" style={{ color: T.TEXT }}>
+                        <div className="text-sm leading-relaxed" style={{ color: TEXT }}>
                           {renderLegenda(c.legenda)}
                         </div>
                         {c.publishDate && (
-                          <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: T.MUTED }}>
+                          <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: MUTED }}>
                             <Calendar size={11} />
                             Publicar em: {new Date(c.publishDate + "T12:00:00").toLocaleDateString("pt-BR")}
                           </p>
                         )}
                         {c.versions?.length > 0 && (
                           <details className="mt-2">
-                            <summary className="text-[11px] cursor-pointer" style={{ color: T.MUTED }}>
+                            <summary className="text-[11px] cursor-pointer" style={{ color: MUTED }}>
                               {c.versions.length} versão(ões) anterior(es)
                             </summary>
                             {c.versions.map((v, vi) => (
-                              <div key={vi} className="mt-1 p-2 rounded text-xs leading-relaxed" style={{ background: T.BG, color: T.MUTED }}>
+                              <div key={vi} className="mt-1 p-2 rounded text-xs leading-relaxed" style={{ background: BG, color: MUTED }}>
                                 <p className="text-[10px] mb-1">{new Date(v.savedAt).toLocaleString("pt-BR")}</p>
                                 {v.legenda}
                               </div>
@@ -2687,7 +2548,7 @@ data-onboard="library-btn"
                 <button
                   onClick={() => setDraft((d) => ({ ...d, mode: "novo" }))}
                   className="ls-mode-tab flex-1 flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg py-2.5 border"
-                  style={draft.mode === "novo" ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN } : { background: T.CARD, color: T.MUTED, borderColor: T.BORDER }}
+                  style={draft.mode === "novo" ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                 >
                   <FileEdit size={14} />
                   Criar legenda
@@ -2695,16 +2556,16 @@ data-onboard="library-btn"
                 <button
                   onClick={() => setDraft((d) => ({ ...d, mode: "otimizar", existingCaption: "", keywords: [], keywordSelected: {} }))}
                   className="ls-mode-tab flex-1 flex items-center justify-center gap-1.5 text-sm font-medium rounded-lg py-2.5 border"
-                  style={draft.mode === "otimizar" ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN } : { background: T.CARD, color: T.MUTED, borderColor: T.BORDER }}
+                  style={draft.mode === "otimizar" ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                 >
                   <Wand2 size={14} />
                   Otimizar legenda
                 </button>
               </div>
 
-              <div className="ls-card bg-white border rounded-2xl p-6" style={{ borderColor: T.BORDER }}>
+              <div className="ls-card bg-white border rounded-2xl p-6" style={{ borderColor: BORDER }}>
                 <div className="mb-5">
-                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: T.MUTED }}>
+                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>
                     Estilo usado nesta legenda
                   </label>
                   {buPresets.length === 0 ? (
@@ -2714,7 +2575,7 @@ data-onboard="library-btn"
                         startNewPreset();
                       }}
                       className="ls-btn-ghost flex items-center gap-1.5 text-xs font-medium border rounded-lg px-3 py-2 bg-white"
-                      style={{ borderColor: T.BORDER, color: T.MUTED }}
+                      style={{ borderColor: BORDER, color: MUTED }}
                     >
                       <Settings2 size={13} />
                       Nenhum estilo salvo ainda, configurar agora
@@ -2735,7 +2596,7 @@ data-onboard="library-btn"
                 </div>
 
                 <div className="mb-5">
-                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: T.MUTED }}>
+                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>
                     Redes sociais
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -2746,7 +2607,7 @@ data-onboard="library-btn"
                         <button
                           key={p.id}
                           onClick={() => selectPlatform(p.id)}
-                          style={active ? { background: GREEN, borderColor: GREEN, color: "#FFFFFF" } : { background: T.CARD, borderColor: T.BORDER, color: T.MUTED }}
+                          style={active ? { background: GREEN, borderColor: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", borderColor: BORDER, color: MUTED }}
                           className="ls-platform-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium"
                         >
                           <Icon size={13} />
@@ -2788,12 +2649,12 @@ data-onboard="library-btn"
                     onClick={findRelatedContent}
                     disabled={relatedLoading}
                     className="ls-btn-ghost flex items-center gap-1.5 text-xs font-medium border rounded-lg px-3 py-2 disabled:opacity-60"
-                    style={{ background: T.HIGHLIGHT, color: GREEN_DARK, borderColor: LIME }}
+                    style={{ background: LIME_SOFT, color: GREEN_DARK, borderColor: LIME }}
                   >
                     {relatedLoading ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
                     Buscar conteúdo relacionado nas outras redes da Localiza
                   </button>
-                  <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: T.MUTED }}>
+                  <p className="text-[11px] mt-1.5 leading-relaxed" style={{ color: MUTED }}>
                     Marque os que fazem sentido. A URL do que estiver marcado entra automaticamente no texto da legenda.
                   </p>
 
@@ -2806,7 +2667,7 @@ data-onboard="library-btn"
                           style={{ borderColor: item.selected ? LIME : BORDER, background: item.selected ? LIME_SOFT : "#FAFCFA" }}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: T.CARD, color: GREEN_DARK }}>
+                            <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full" style={{ background: "#FFFFFF", color: GREEN_DARK }}>
                               {item.rede}
                             </span>
                             <div className="flex items-center gap-2">
@@ -2821,7 +2682,7 @@ data-onboard="library-btn"
                                   value={item.mode || draft.relatedMode || "incluir"}
                                   onChange={(e) => setDraft((d) => ({ ...d, relatedContent: d.relatedContent.map((rc, ri) => ri === i ? { ...rc, mode: e.target.value } : rc) }))}
                                   className="text-[10px] border rounded px-1 py-0.5"
-                                  style={{ borderColor: T.BORDER, color: T.MUTED }}
+                                  style={{ borderColor: BORDER, color: MUTED }}
                                 >
                                   <option value="incluir">Incluir link</option>
                                   <option value="basear">Usar como base</option>
@@ -2830,18 +2691,18 @@ data-onboard="library-btn"
                               <button
                                 onClick={() => toggleRelatedSelected(i)}
                                 className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full"
-                                style={item.selected ? { background: GREEN, color: "#FFFFFF" } : { background: T.CARD, color: T.MUTED, border: `1px solid ${BORDER}` }}
+                                style={item.selected ? { background: GREEN, color: "#FFFFFF" } : { background: "#FFFFFF", color: MUTED, border: `1px solid ${BORDER}` }}
                               >
                                 {item.selected && <Check size={11} />}
                                 {item.selected ? "Selecionado" : "Selecionar"}
                               </button>
                             </div>
                           </div>
-                          <p className="text-sm font-medium mt-1.5" style={{ color: T.TEXT }}>
+                          <p className="text-sm font-medium mt-1.5" style={{ color: TEXT }}>
                             {item.titulo}
                           </p>
                           {item.dica && (
-                            <p className="text-xs mt-1 leading-relaxed" style={{ color: T.MUTED }}>
+                            <p className="text-xs mt-1 leading-relaxed" style={{ color: MUTED }}>
                               {item.dica}
                             </p>
                           )}
@@ -2868,7 +2729,7 @@ data-onboard="library-btn"
                 </div>
 
                 <div className="mb-5">
-                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: T.MUTED }}>
+                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>
                     Tamanho da legenda
                   </label>
                   <div className="flex gap-2">
@@ -2884,14 +2745,14 @@ data-onboard="library-btn"
                         style={
                           draft.length === opt.id
                             ? { background: GREEN, color: "#FFFFFF", borderColor: GREEN }
-                            : { background: T.CARD, color: T.MUTED, borderColor: T.BORDER }
+                            : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }
                         }
                       >
                         {opt.label}
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] mt-1.5" style={{ color: T.MUTED }}>
+                  <p className="text-[11px] mt-1.5" style={{ color: MUTED }}>
                     {(() => {
                       const notes = {
                         instagram: "no Instagram o padrão é curto",
@@ -2907,7 +2768,7 @@ data-onboard="library-btn"
                 </div>
 
                 <div className="mb-5">
-                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: T.MUTED }}>
+                  <label className="text-xs font-semibold tracking-wide block mb-2" style={{ color: MUTED }}>
                     Tom de voz deste post (opcional, se vazio usa o tom geral do estilo selecionado)
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -2943,13 +2804,13 @@ data-onboard="library-btn"
                 </div>
                 {draft.citarLocaliza && (
                   <div className="mb-3 flex items-center gap-2">
-                    <span className="text-xs" style={{ color: T.MUTED }}>Pessoa gramatical:</span>
+                    <span className="text-xs" style={{ color: MUTED }}>Pessoa gramatical:</span>
                     {[["1", "1ª pessoa (Somos, Oferecemos)"], ["2", "2ª pessoa (Você, Sua)"], ["3", "3ª pessoa (A Localiza, Ela)"]].map(([val, label]) => (
                       <button
                         key={val}
                         onClick={() => setDraft((d) => ({ ...d, pessoaLocaliza: val }))}
                         className="text-xs px-2 py-1 rounded border"
-                        style={draft.pessoaLocaliza === val ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: T.INPUT, color: T.MUTED, borderColor: T.BORDER }}
+                        style={draft.pessoaLocaliza === val ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                       >
                         {label}
                       </button>
@@ -2957,14 +2818,14 @@ data-onboard="library-btn"
                   </div>
                 )}
                 {draft.useHashtags && (
-                  <p className="text-[11px] mb-5" style={{ color: T.MUTED }}>
+                  <p className="text-[11px] mb-5" style={{ color: MUTED }}>
                     A ferramenta decide a quantidade ideal (até no máximo 5), sem número fixo, varia por post e rede.
                   </p>
                 )}
                 {!draft.useHashtags && <div className="mb-5" />}
 
                 <div className="mb-5">
-                  <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-2" style={{ color: T.MUTED }}>
+                  <label className="text-xs font-semibold tracking-wide flex items-center gap-1.5 mb-2" style={{ color: MUTED }}>
                     <Hash size={13} />
                     Palavras-chave recomendadas
                   </label>
@@ -3004,7 +2865,7 @@ data-onboard="library-btn"
                     })}
                   </div>
                   {draft.keywords.length > 0 && (
-                    <p className="text-[11px] mb-2" style={{ color: T.MUTED }}>
+                    <p className="text-[11px] mb-2" style={{ color: MUTED }}>
                       As marcadas em verde entram na legenda, clique na bolinha pra incluir ou tirar.
                     </p>
                   )}
@@ -3016,14 +2877,14 @@ data-onboard="library-btn"
                       placeholder="Adicionar palavra-chave manualmente"
                       className={`${inputClass} flex-1`}
                     />
-                    <button onClick={addKeyword} className="ls-btn-ghost px-3 rounded-lg border bg-white" style={{ borderColor: T.BORDER, color: T.MUTED }} aria-label="Adicionar">
+                    <button onClick={addKeyword} className="ls-btn-ghost px-3 rounded-lg border bg-white" style={{ borderColor: BORDER, color: MUTED }} aria-label="Adicionar">
                       <Plus size={16} />
                     </button>
                     <button
                       onClick={() => researchKeywords(false)}
                       disabled={kwLoading}
                       className="ls-btn-ghost flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border disabled:opacity-60 whitespace-nowrap"
-                      style={{ background: T.HIGHLIGHT, color: GREEN_DARK, borderColor: LIME }}
+                      style={{ background: LIME_SOFT, color: GREEN_DARK, borderColor: LIME }}
                     >
                       {kwLoading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
                       Sugerir palavras-chave
@@ -3051,8 +2912,8 @@ data-onboard="generate-btn"
                 </button>
 
                 {draft.platforms.includes("youtube") && (
-                  <div className="mt-4 pt-4 border-t" style={{ borderColor: T.BORDER }}>
-                    <p className="text-xs font-semibold mb-2" style={{ color: T.MUTED }}>YouTube · título do vídeo</p>
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: BORDER }}>
+                    <p className="text-xs font-semibold mb-2" style={{ color: MUTED }}>YouTube · título do vídeo</p>
                     <button
                       disabled={titleLoading}
                       onClick={async () => {
@@ -3075,7 +2936,7 @@ data-onboard="generate-btn"
                           setTitleLoading(false);
                         }
                       }}
-                      style={{ background: T.CARD, color: GREEN, borderColor: GREEN }}
+                      style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
                       className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border hover:opacity-80 transition-opacity disabled:opacity-60"
                     >
                       {titleLoading ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
@@ -3094,7 +2955,7 @@ data-onboard="generate-btn"
                       const r = results[p];
                       const key = `${p}-caption`;
                       return (
-                        <div key={p} className="ls-card bg-white border rounded-2xl p-5" style={{ borderColor: T.BORDER }}>
+                        <div key={p} className="ls-card bg-white border rounded-2xl p-5" style={{ borderColor: BORDER }}>
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: GREEN_DARK }}>
                               <Icon size={16} />
@@ -3112,7 +2973,7 @@ data-onboard="generate-btn"
                               <button
                                 onClick={() => copyToClipboard(key, `${r.legenda}\n\n${(r.hashtags || []).map((h) => `#${h.replace(/^#/, "")}`).join(" ")}`)}
                                 className="ls-side-link flex items-center gap-1 text-xs"
-                                style={{ color: T.MUTED }}
+                                style={{ color: MUTED }}
                               >
                                 {copiedKey === key ? <Check size={13} /> : <Copy size={13} />}
                                 {copiedKey === key ? "Copiado" : "Copiar"}
@@ -3140,13 +3001,13 @@ data-onboard="generate-btn"
                           <textarea
                             value={r.legenda}
                             onChange={(e) => setResults((prev) => ({ ...prev, [p]: { ...prev[p], legenda: e.target.value } }))}
-                            className={`${inputClass} min-h-[100px]`} style={{ background: T.INPUT, color: T.TEXT, borderColor: T.BORDER }}
+                            className={`${inputClass} min-h-[100px]`} style={{ background: "#FFFFFF", color: TEXT, borderColor: BORDER }}
                           />
                           )}
                           {p === "youtube" && (
                             <div className="mt-3">
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-semibold tracking-wide" style={{ color: T.MUTED }}>Título (YouTube)</label>
+                                <label className="text-xs font-semibold tracking-wide" style={{ color: MUTED }}>Título (YouTube)</label>
                                 <button
                                   onClick={async () => {
                                     const currentTitle = r.titulo_youtube || "";
@@ -3162,7 +3023,7 @@ Crie/otimize o título:`,
                                     setResults((prev) => ({ ...prev, [p]: { ...prev[p], titulo_youtube: text.trim().slice(0, 100) } }));
                                   }}
                                   className="text-[11px] px-2 py-0.5 rounded border"
-                                  style={{ borderColor: T.BORDER, color: T.MUTED }}
+                                  style={{ borderColor: BORDER, color: MUTED }}
                                 >
                                   {r.titulo_youtube ? "Otimizar título" : "Gerar título"}
                                 </button>
@@ -3220,7 +3081,7 @@ Crie/otimize o título:`,
                                     }
                                   }}
                                   className="mt-2 flex items-center gap-1.5 text-xs font-medium"
-                                  style={{ color: T.MUTED }}
+                                  style={{ color: MUTED }}
                                 >
                                   <Star size={13} />
                                   Destacar título
@@ -3235,7 +3096,7 @@ Crie/otimize o título:`,
                               </Chip>
                             ))}
                           </div>
-                          <div className="flex items-center justify-between mt-4 pt-4 border-t flex-wrap gap-3" style={{ borderColor: T.BORDER }}>
+                          <div className="flex items-center justify-between mt-4 pt-4 border-t flex-wrap gap-3" style={{ borderColor: BORDER }}>
                             <div className="flex items-center gap-5">
                               <ScoreRing label="SEO" value={r.seoScore} />
                               <ScoreRing label="Tom" value={r.toneScore} />
@@ -3246,7 +3107,7 @@ Crie/otimize o título:`,
                                 onClick={() => reanalyzeCaption(p)}
                                 disabled={reanalyzing[p]}
                                 className="ls-btn-ghost flex items-center gap-1.5 text-xs font-medium border rounded-lg px-2.5 py-1.5 bg-white disabled:opacity-60"
-                                style={{ borderColor: T.BORDER, color: T.MUTED }}
+                                style={{ borderColor: BORDER, color: MUTED }}
                               >
                                 {reanalyzing[p] ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
                                 Reanalisar
@@ -3255,7 +3116,7 @@ Crie/otimize o título:`,
                                 onClick={() => saveCaption(p, false)}
                                 disabled={savingCaption[p]}
                                 className="ls-btn-ghost flex items-center gap-1.5 text-xs font-medium border rounded-lg px-2.5 py-1.5 bg-white disabled:opacity-60"
-                                style={savedCaption[p] ? { borderColor: GREEN, color: GREEN } : { borderColor: T.BORDER, color: T.MUTED }}
+                                style={savedCaption[p] ? { borderColor: GREEN, color: GREEN } : { borderColor: BORDER, color: MUTED }}
                               >
                                 {savingCaption[p] ? <Loader2 size={12} className="animate-spin" /> : savedCaption[p] ? <Check size={12} /> : <Bookmark size={12} />}
                                 {savingCaption[p] ? "Salvando..." : savedCaption[p] ? "Salvo!" : "Salvar"}
@@ -3285,7 +3146,7 @@ Crie/otimize o título:`,
                       draft.mode === "novo" ? generateCaptions() : optimizeCaptions();
                     }}
                     disabled={genLoading}
-                    style={{ background: T.CARD, color: GREEN, borderColor: GREEN }}
+                    style={{ background: "#FFFFFF", color: GREEN, borderColor: GREEN }}
                     className="flex-1 flex items-center justify-center gap-2 text-sm font-semibold rounded-lg py-2.5 border disabled:opacity-60 hover:opacity-80 transition-opacity"
                   >
                     {genLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
@@ -3308,7 +3169,7 @@ Crie/otimize o título:`,
                         alert("Todas as legendas copiadas!");
                       });
                     }}
-                    style={{ background: T.CARD, color: T.MUTED, borderColor: T.BORDER }}
+                    style={{ background: "#FFFFFF", color: MUTED, borderColor: BORDER }}
                     className="px-3 flex items-center justify-center rounded-lg border hover:opacity-80 transition-opacity"
                     title="Exportar todas as legendas"
                   >
@@ -3325,15 +3186,15 @@ Crie/otimize o título:`,
     {/* Modal data de publicação */}
     {publishDateModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: T.CARD, color: T.TEXT }}>
+        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: "#FFFFFF", color: TEXT }}>
           <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Data de publicação</p>
-          <p className="text-sm mb-4" style={{ color: T.MUTED }}>Opcional, ajuda a organizar o calendário editorial.</p>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>Opcional, ajuda a organizar o calendário editorial.</p>
           <input
             type="date"
             value={publishDateInput}
             onChange={e => setPublishDateInput(e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
-            style={{ borderColor: T.BORDER }}
+            style={{ borderColor: BORDER }}
           />
           <div className="flex gap-2">
             <button
@@ -3346,7 +3207,7 @@ Crie/otimize o título:`,
             <button
               onClick={() => setPublishDateModal(null)}
               className="px-4 py-2.5 rounded-lg text-sm border"
-              style={{ borderColor: T.BORDER, color: T.MUTED }}
+              style={{ borderColor: BORDER, color: MUTED }}
             >
               Cancelar
             </button>
@@ -3358,9 +3219,9 @@ Crie/otimize o título:`,
     {/* Modal de troca de rede */}
     {switchNetModal && (
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: T.CARD, color: T.TEXT }}>
+        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: "#FFFFFF", color: TEXT }}>
           <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Trocar de rede</p>
-          <p className="text-sm mb-4" style={{ color: T.MUTED }}>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>
             Você tem uma legenda gerada. O que quer fazer antes de trocar?
           </p>
           <div className="space-y-2 mb-4">
@@ -3396,14 +3257,14 @@ Crie/otimize o título:`,
                 setSwitchNetModal({ toId, phase: "keep" });
               }}
               className="w-full text-sm font-medium rounded-lg py-2.5 border"
-              style={{ borderColor: T.BORDER, color: T.MUTED }}
+              style={{ borderColor: BORDER, color: MUTED }}
             >
               Descartar e trocar
             </button>
             <button
               onClick={() => setSwitchNetModal(null)}
               className="w-full text-sm rounded-lg py-2"
-              style={{ color: T.MUTED }}
+              style={{ color: MUTED }}
             >
               Cancelar
             </button>
@@ -3415,9 +3276,9 @@ Crie/otimize o título:`,
     {/* Modal manter configurações */}
     {switchNetModal?.phase === "keep" && (
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
-        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: T.CARD, color: T.TEXT }}>
+        <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: "#FFFFFF", color: TEXT }}>
           <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Manter configurações?</p>
-          <p className="text-sm mb-4" style={{ color: T.MUTED }}>
+          <p className="text-sm mb-4" style={{ color: MUTED }}>
             Quer manter o tópico, palavras-chave, estilo e tom pra gerar a legenda pra nova rede?
           </p>
           <div className="space-y-2">
@@ -3441,7 +3302,7 @@ Crie/otimize o título:`,
                 setSwitchNetModal(null);
               }}
               className="w-full text-sm font-medium rounded-lg py-2.5 border"
-              style={{ borderColor: T.BORDER, color: T.MUTED }}
+              style={{ borderColor: BORDER, color: MUTED }}
             >
               Não, começar do zero
             </button>
@@ -3519,21 +3380,21 @@ Crie/otimize o título:`,
             style={{ ...popupStyle, width: 300, maxWidth: "calc(100vw - 32px)", zIndex: 70, pointerEvents: "all" }}
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: T.HIGHLIGHT, color: GREEN_DARK }}>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: LIME_SOFT, color: GREEN_DARK }}>
                 {onboardStep + 1} / {ONBOARDING_STEPS.length}
               </span>
-              <button onClick={onboardDone} className="text-[11px]" style={{ color: T.MUTED }}>Pular</button>
+              <button onClick={onboardDone} className="text-[11px]" style={{ color: MUTED }}>Pular</button>
             </div>
             <h3 className="text-sm font-bold mb-1.5" style={{ color: GREEN_DARK }}>{step.title}</h3>
-            <p className="text-xs leading-relaxed mb-4" style={{ color: T.MUTED }}>{step.desc}</p>
+            <p className="text-xs leading-relaxed mb-4" style={{ color: MUTED }}>{step.desc}</p>
             {step.autoAdvance ? (
-              <p className="text-[10px] italic mb-3" style={{ color: T.MUTED }}>
+              <p className="text-[10px] italic mb-3" style={{ color: MUTED }}>
                 ↑ Clique no elemento destacado para avançar automaticamente
               </p>
             ) : null}
             <div className="flex gap-2">
               {onboardStep > 0 && (
-                <button onClick={() => setOnboardStep(s => s - 1)} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: T.BORDER, color: T.MUTED }}>
+                <button onClick={() => setOnboardStep(s => s - 1)} className="px-3 py-1.5 rounded-lg border text-xs" style={{ borderColor: BORDER, color: MUTED }}>
                   ‹ Voltar
                 </button>
               )}
@@ -3564,7 +3425,7 @@ Crie/otimize o título:`,
       >
         <div
           className="rounded-2xl p-6 max-w-md w-full shadow-2xl"
-          style={{ background: T.CARD, color: T.TEXT }}
+          style={{ background: "#FFFFFF", color: TEXT }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start gap-3 mb-4">
