@@ -816,6 +816,11 @@ export default function App() {
   // Chat assistente
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState(() => {
+    // Tenta carregar histórico salvo
+    try {
+      const saved = localStorage.getItem(`chat-history:${currentUser?.hash || "anon"}`);
+      if (saved) return JSON.parse(saved);
+    } catch {}
     const nome = currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : "";
     return [{ role: "assistant", content: `Oi${nome}! 👋 Sou o assistente do Social Studio. Posso te ajudar com qualquer dúvida sobre a ferramenta, sugerir atalhos ou explicar como usar cada funcionalidade. Como posso ajudar?` }];
   });
@@ -847,7 +852,11 @@ export default function App() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setChatMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
+      setChatMessages(prev => {
+        const updated = [...prev, { role: "assistant", content: data.reply }];
+        try { localStorage.setItem(`chat-history:${currentUser?.hash || "anon"}`, JSON.stringify(updated.slice(-40))); } catch {}
+        return updated;
+      });
     } catch (e) {
       setChatMessages(prev => [...prev, { role: "assistant", content: "Erro ao conectar. Verifica sua conexão e tenta de novo." }]);
     } finally {
@@ -3768,9 +3777,38 @@ Crie/otimize o título:`,
                 <p className="text-white/60 text-[10px]">Social Studio</p>
               </div>
             </div>
-            <button onClick={() => setChatOpen(false)} className="text-white/70 hover:text-white">
-              <X size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  // Exportar conversa como .txt
+                  const txt = chatMessages.map(m => `${m.role === "user" ? "Você" : "Assistente"}: ${m.content}`).join("\n\n");
+                  const blob = new Blob([txt], { type: "text/plain" });
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = `conversa-social-studio-${new Date().toLocaleDateString("pt-BR").replace(/\//g, "-")}.txt`;
+                  a.click();
+                }}
+                className="text-white/70 hover:text-white"
+                title="Salvar conversa"
+              >
+                <Download size={14} />
+              </button>
+              <button
+                onClick={() => {
+                  const nome = currentUser?.name ? `, ${currentUser.name.split(" ")[0]}` : "";
+                  const initial = [{ role: "assistant", content: `Oi${nome}! 👋 Sou o assistente do Social Studio. Como posso ajudar?` }];
+                  setChatMessages(initial);
+                  try { localStorage.removeItem(`chat-history:${currentUser?.hash || "anon"}`); } catch {}
+                }}
+                className="text-white/70 hover:text-white"
+                title="Limpar conversa"
+              >
+                <Trash2 size={14} />
+              </button>
+              <button onClick={() => setChatOpen(false)} className="text-white/70 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Mensagens */}
