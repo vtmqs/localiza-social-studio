@@ -961,10 +961,17 @@ Retorne este JSON com análise real baseada nos dados acima:
     ${insights?.recomendacoes_praticas?.length?`<h2>→ Recomendações práticas</h2>${insights.recomendacoes_praticas.map(r=>`<div class="rec-card"><div class="rec-title">${r.titulo||r}</div>${r.detalhe?`<div class="rec-detail">${r.detalhe}</div>`:""}</div>`).join("")}`:""}
     ${insights?.plataforma_destaque||insights?.plataforma_atencao?`<h2>Plataformas</h2>${insights.plataforma_destaque?`<div class="diag"><b style="color:#01652A">⭐ Destaque:</b> ${insights.plataforma_destaque}</div>`:""}${insights.plataforma_atencao?`<div class="diag"><b style="color:#d97706">⚠ Atenção:</b> ${insights.plataforma_atencao}</div>`:""}`:""}
     </body></html>`;
-    const w = window.open("", "_blank");
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => w.print(), 600);
+    // Baixar como arquivo HTML que o browser converte pra PDF
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9À-ÿ\s]/g, "").trim()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    // Também abre pra imprimir/salvar como PDF
+    const w = window.open(url, "_blank");
+    if (w) setTimeout(() => { w.print(); }, 800);
   };
 
   const ScoreGauge = ({ label, value, color }) => (
@@ -1217,6 +1224,45 @@ Retorne este JSON com análise real baseada nos dados acima:
                   <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#5B6B60" }}>Plataformas</p>
                   {report.plataforma_destaque && <div className="rounded-lg p-3" style={{ background: "#F0FFF4" }}><p className="text-[10px] font-bold" style={{ color: "#01652A" }}>⭐ Destaque</p><p className="text-xs mt-0.5" style={{ color: "#16241A" }}>{report.plataforma_destaque}</p></div>}
                   {report.plataforma_atencao && <div className="rounded-lg p-3" style={{ background: "#FFFBEB" }}><p className="text-[10px] font-bold" style={{ color: "#d97706" }}>⚠ Atenção</p><p className="text-xs mt-0.5" style={{ color: "#16241A" }}>{report.plataforma_atencao}</p></div>}
+                </div>
+              )}
+
+              {/* Resumo visual de notas — sempre no fim */}
+              {reportMeta && (
+                <div className="rounded-2xl border-2 p-5" style={{ borderColor: "#EAF9DC", background: "#F6FFF4" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-center mb-4" style={{ color: "#5B6B60" }}>Resumo de notas</p>
+                  <div className="flex justify-center gap-6">
+                    {[
+                      { label: "Geral", value: reportMeta.notaGeral, color: "#01652A" },
+                      { label: "SEO", value: reportMeta.avgSEO, color: "#01652A" },
+                      { label: "Tom", value: reportMeta.avgTom, color: "#0A66C2" },
+                      { label: "Orig.", value: reportMeta.avgOrig, color: "#7C3AED" },
+                    ].map(({ label, value, color }) => {
+                      const size = 56;
+                      const r = 24;
+                      const circ = 2 * Math.PI * r;
+                      const dash = (value / 100) * circ;
+                      const bg = value >= 75 ? "#DCFCE7" : value >= 50 ? "#FEF9C3" : "#FEE2E2";
+                      return (
+                        <div key={label} className="flex flex-col items-center gap-1">
+                          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+                            <circle cx={size/2} cy={size/2} r={r} fill={bg} stroke="#E1E8E2" strokeWidth="3" />
+                            <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth="3"
+                              strokeDasharray={`${dash} ${circ - dash}`}
+                              strokeDashoffset={circ / 4}
+                              strokeLinecap="round"
+                              style={{ transition: "stroke-dasharray 0.6s ease" }}
+                            />
+                            <text x={size/2} y={size/2 + 5} textAnchor="middle" fontSize="13" fontWeight="800" fill={color}>{value}</text>
+                          </svg>
+                          <p className="text-[10px] font-semibold" style={{ color: "#5B6B60" }}>{label}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-center mt-3" style={{ color: "#9CA3AF" }}>
+                    {reportMeta.totalLegendas} legenda{reportMeta.totalLegendas !== 1 ? "s" : ""} analisada{reportMeta.totalLegendas !== 1 ? "s" : ""}
+                  </p>
                 </div>
               )}
             </div>
