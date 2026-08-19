@@ -4323,7 +4323,7 @@ Crie/otimize o título:`,
                                       setLibrary(prev => ({ ...prev, [activeBU]: updated }));
                                       storage.set(`captions:${activeBU}`, JSON.stringify(updated));
                                     } else {
-                                      const entry = { id: `${Date.now()}`, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                                      const entry = { id: `${Date.now()}`, bu: activeBU, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, originalScore: r.originalScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", userHash: currentUser?.hash || "", savedAt: new Date().toISOString() };
                                       const updated = [entry, ...(library[activeBU] || [])];
                                       setLibrary(prev => ({ ...prev, [activeBU]: updated }));
                                       storage.set(`captions:${activeBU}`, JSON.stringify(updated));
@@ -4350,7 +4350,7 @@ Crie/otimize o título:`,
                                       storage.set(`captions:${activeBU}`, JSON.stringify(updated));
                                     } else {
                                       // Salva novo entry só com título
-                                      const entry = { id: `${Date.now()}`, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                                      const entry = { id: `${Date.now()}`, bu: activeBU, platform: "youtube", legenda: r.legenda || "", hashtags: [], titulo_youtube: r.titulo_youtube, topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, originalScore: r.originalScore || 0, destaque: false, destaqueTitle: true, visibility: "private", savedBy: currentUser?.name || "Anônimo", userHash: currentUser?.hash || "", savedAt: new Date().toISOString() };
                                       const updated = [entry, ...(library[activeBU] || [])];
                                       setLibrary(prev => ({ ...prev, [activeBU]: updated }));
                                       storage.set(`captions:${activeBU}`, JSON.stringify(updated));
@@ -4554,7 +4554,7 @@ Crie/otimize o título:`,
                   const platform = draft.platforms[0];
                   const r = results[platform];
                   if (r) {
-                    const entry = { id: `${Date.now()}`, platform, legenda: r.legenda, hashtags: r.hashtags || [], topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore, toneScore: r.toneScore, destaque: false, visibility: "private", savedBy: currentUser?.name || "Anônimo", savedAt: new Date().toISOString() };
+                    const entry = { id: `${Date.now()}`, bu: activeBU, platform, legenda: r.legenda, hashtags: r.hashtags || [], topico: draft.topic, presetTitle: activeGenPreset?.title || "", seoScore: r.seoScore || 0, toneScore: r.toneScore || 0, originalScore: r.originalScore || 0, destaque: false, visibility: "private", savedBy: currentUser?.name || "Anônimo", userHash: currentUser?.hash || "", savedAt: new Date().toISOString() };
                     const current = library[activeBU] || [];
                     const updated = [entry, ...current];
                     setLibrary((prev) => ({ ...prev, [activeBU]: updated }));
