@@ -780,6 +780,326 @@ async function storageAPI(body) {
   return r.json();
 }
 
+// ---- PÁGINA DE RELATÓRIO ----
+function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
+  const [selected, setSelected] = React.useState("destaque");
+  const [manualIds, setManualIds] = React.useState([]);
+  const [report, setReport] = React.useState(null);
+  const [reportMeta, setReportMeta] = React.useState(null); // { title, createdAt, avgSEO, avgTom, avgOrig, ... }
+  const [loading, setLoading] = React.useState(false);
+  const [period, setPeriod] = React.useState("all");
+  const [showSaveModal, setShowSaveModal] = React.useState(false);
+  const [saveTitle, setSaveTitle] = React.useState("");
+  const [saveDate, setSaveDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const [savedReports, setSavedReports] = React.useState([]);
+  const [loadingReports, setLoadingReports] = React.useState(false);
+  const [view, setView] = React.useState("new"); // "new" | "history"
+
+  const filterByPeriod = (items) => {
+    if (period === "all") return items;
+    const days = parseInt(period);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    return items.filter(c => new Date(c.savedAt) >= cutoff);
+  };
+
+  const getItems = () => {
+    const base = filterByPeriod(buLibrary);
+    if (selected === "destaque") return base.filter(c => c.destaque || c.destaqueTitle);
+    if (selected === "all") return base;
+    return base.filter(c => manualIds.includes(c.id));
+  };
+
+  const items = getItems();
+  const withScores = items.filter(c => c.seoScore > 0 || c.toneScore > 0);
+
+  const avg = (arr, fn) => arr.length ? Math.round(arr.reduce((s, x) => s + (fn(x) || 0), 0) / arr.length) : 0;
+  const avgSEO = avg(withScores, c => c.seoScore);
+  const avgTom = avg(withScores, c => c.toneScore);
+  const avgOrig = avg(withScores, c => c.originalScore || 0);
+
+  const byPlatform = {};
+  items.forEach(c => {
+    if (!byPlatform[c.platform]) byPlatform[c.platform] = [];
+    byPlatform[c.platform].push(c);
+  });
+
+  const generateReport = async () => {
+    if (items.length === 0) return;
+    setLoading(true);
+    try {
+      const sample = items.slice(0, 8).map(c => `[${c.platform}] SEO:${c.seoScore} Tom:${c.toneScore} Orig:${c.originalScore || 0} "${(c.topico || c.legenda || "").slice(0, 60)}"`).join("\n");
+      const { text } = await callAI({
+        system: "Você é analista de conteúdo digital. Analise os dados de legendas e gere um relatório executivo em JSON com insights reais e acionáveis. Retorne SOMENTE JSON válido.",
+        prompt: `Relatório de ${items.length} legendas da BU ${bu.label}:\n\nMédias: SEO ${avgSEO}/100, Tom ${avgTom}/100, Originalidade ${avgOrig}/100\nPor rede: ${Object.entries(byPlatform).map(([p, arr]) => `${p}: ${arr.length} legendas, SEO médio ${avg(arr, c => c.seoScore)}`).join(", ")}\n\nAmostra:\n${sample}\n\nRetorne:\n{"pontos_fortes": ["..."], "pontos_melhoria": ["..."], "insights": ["..."], "recomendacoes": ["..."], "resumo_executivo": "..."}`,
+        useSearch: false,
+      });
+      const clean = text.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      setReport(parsed);
+      setReportMeta({ avgSEO, avgTom, avgOrig, byPlatform, totalLegendas: items.length, period });
+    } catch { setReport(null); }
+    setLoading(false);
+  };
+
+  const loadSavedReports = async () => {
+    setLoadingReports(true);
+    try {
+      const data = await storageAPI({ action: "listReports", bu: bu.id });
+      setSavedReports(data.reports || []);
+    } catch {}
+    setLoadingReports(false);
+  };
+
+  const saveReport = async () => {
+    if (!saveTitle.trim()) return;
+    const entry = {
+      id: `${Date.now()}`,
+      title: saveTitle.trim(),
+      bu: bu.id,
+      createdBy: currentUser?.name || "Anônimo",
+      createdAt: saveDate,
+      period,
+      totalLegendas: reportMeta?.totalLegendas || 0,
+      avgSEO: reportMeta?.avgSEO || 0,
+      avgTom: reportMeta?.avgTom || 0,
+      avgOrig: reportMeta?.avgOrig || 0,
+      byPlatform: reportMeta?.byPlatform || {},
+      insights: report || {},
+    };
+    try {
+      await storageAPI({ action: "saveReport", report: entry, bu: bu.id });
+      setShowSaveModal(false);
+      setSaveTitle("");
+    } catch {}
+  };
+
+  const exportPDF = (title, date, meta, insights) => {
+    const html = `
+      <html><head><meta charset="utf-8"><title>${title}</title>
+      <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; color: #16241A; }
+        h1 { color: #01652A; font-size: 22px; }
+        h2 { color: #014A1F; font-size: 15px; margin-top: 24px; }
+        .meta { color: #5B6B60; font-size: 12px; margin-bottom: 24px; }
+        .scores { display: flex; gap: 24px; margin: 16px 0; }
+        .score { text-align: center; }
+        .score-num { font-size: 28px; font-weight: 700; color: #01652A; }
+        .score-label { font-size: 11px; color: #5B6B60; }
+        ul { margin: 8px 0; padding-left: 20px; }
+        li { font-size: 13px; margin-bottom: 4px; }
+        .summary { background: #F6F9F6; border-left: 3px solid #01652A; padding: 12px 16px; margin: 16px 0; font-size: 13px; }
+        @media print { button { display: none; } }
+      </style></head><body>
+      <h1>${title}</h1>
+      <div class="meta">BU: ${bu.label} &nbsp;·&nbsp; Criado por: ${currentUser?.name || "–"} &nbsp;·&nbsp; Data: ${new Date(date + "T12:00:00").toLocaleDateString("pt-BR")}</div>
+      ${insights?.resumo_executivo ? `<div class="summary">${insights.resumo_executivo}</div>` : ""}
+      <div class="scores">
+        <div class="score"><div class="score-num">${meta?.avgSEO || 0}</div><div class="score-label">SEO médio</div></div>
+        <div class="score"><div class="score-num">${meta?.avgTom || 0}</div><div class="score-label">Tom médio</div></div>
+        <div class="score"><div class="score-num">${meta?.avgOrig || 0}</div><div class="score-label">Orig. médio</div></div>
+        <div class="score"><div class="score-num">${meta?.totalLegendas || 0}</div><div class="score-label">Legendas</div></div>
+      </div>
+      ${insights?.pontos_fortes?.length ? `<h2>✓ Pontos fortes</h2><ul>${insights.pontos_fortes.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
+      ${insights?.pontos_melhoria?.length ? `<h2>↑ Oportunidades de melhoria</h2><ul>${insights.pontos_melhoria.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
+      ${insights?.insights?.length ? `<h2>💡 Insights</h2><ul>${insights.insights.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
+      ${insights?.recomendacoes?.length ? `<h2>→ Recomendações</h2><ul>${insights.recomendacoes.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
+      </body></html>`;
+    const w = window.open("", "_blank");
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
+  };
+
+  const ScoreBar = ({ label, value, color }) => (
+    <div className="mb-3">
+      <div className="flex justify-between text-xs mb-1">
+        <span style={{ color: "#5B6B60" }}>{label}</span>
+        <span className="font-bold" style={{ color }}>{value}/100</span>
+      </div>
+      <div className="h-2 rounded-full" style={{ background: "#E1E8E2" }}>
+        <div className="h-2 rounded-full transition-all" style={{ width: `${value}%`, background: color }} />
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <p className="text-sm mb-5" style={{ color: "#5B6B60" }}>Métricas de qualidade das legendas de {bu.label}.</p>
+
+      {/* Filtros */}
+      <div className="bg-white rounded-xl border p-4 mb-4" style={{ borderColor: "#E1E8E2" }}>
+        <p className="text-xs font-semibold mb-3" style={{ color: "#5B6B60" }}>Quais legendas incluir</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {[["destaque", "⭐ Destacadas"], ["all", "Todas"], ["manual", "Selecionar manualmente"]].map(([v, l]) => (
+            <button key={v} onClick={() => setSelected(v)} className="text-xs px-3 py-1.5 rounded-lg border font-medium"
+              style={selected === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Período</p>
+        <div className="flex gap-2">
+          {[["all", "Todo o histórico"], ["90", "Últimos 90 dias"], ["30", "Últimos 30 dias"]].map(([v, l]) => (
+            <button key={v} onClick={() => setPeriod(v)} className="text-xs px-3 py-1.5 rounded-lg border"
+              style={period === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Seleção manual */}
+      {selected === "manual" && (
+        <div className="bg-white rounded-xl border p-4 mb-4 max-h-52 overflow-y-auto" style={{ borderColor: "#E1E8E2" }}>
+          <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Selecione as legendas</p>
+          {filterByPeriod(buLibrary).map(c => (
+            <label key={c.id} className="flex items-start gap-2 py-1.5 border-b cursor-pointer" style={{ borderColor: "#F0F4F3" }}>
+              <input type="checkbox" checked={manualIds.includes(c.id)} onChange={() => setManualIds(prev => prev.includes(c.id) ? prev.filter(i => i !== c.id) : [...prev, c.id])} />
+              <div>
+                <p className="text-xs font-medium" style={{ color: "#16241A" }}>{c.topico || c.legenda?.slice(0, 50)}</p>
+                <p className="text-[10px]" style={{ color: "#5B6B60" }}>{c.platform} · SEO {c.seoScore} · Tom {c.toneScore}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {/* Resumo numérico */}
+      <div className="bg-white rounded-xl border p-4 mb-4" style={{ borderColor: "#E1E8E2" }}>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold" style={{ color: "#5B6B60" }}>{items.length} legenda{items.length !== 1 ? "s" : ""} selecionada{items.length !== 1 ? "s" : ""}</p>
+        </div>
+        <ScoreBar label="SEO médio" value={avgSEO} color="#01652A" />
+        <ScoreBar label="Tom de marca médio" value={avgTom} color="#0A66C2" />
+        <ScoreBar label="Originalidade média" value={avgOrig} color="#7C3AED" />
+
+        {Object.keys(byPlatform).length > 0 && (
+          <div className="mt-4 pt-3 border-t" style={{ borderColor: "#E1E8E2" }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>Por rede</p>
+            {Object.entries(byPlatform).map(([plat, arr]) => (
+              <div key={plat} className="flex items-center justify-between text-xs mb-1.5">
+                <span className="capitalize" style={{ color: "#16241A" }}>{plat}</span>
+                <span style={{ color: "#5B6B60" }}>{arr.length} · SEO {avg(arr, c => c.seoScore)} · Tom {avg(arr, c => c.toneScore)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tabs novo / histórico */}
+      <div className="flex gap-2 mb-4">
+        {[["new", "Novo relatório"], ["history", "Histórico"]].map(([v, l]) => (
+          <button key={v} onClick={() => { setView(v); if (v === "history") loadSavedReports(); }}
+            className="text-xs px-3 py-1.5 rounded-lg border font-medium"
+            style={view === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {view === "history" && (
+        <div>
+          {loadingReports && <p className="text-xs text-center py-8" style={{ color: "#5B6B60" }}>Carregando...</p>}
+          {!loadingReports && savedReports.length === 0 && <p className="text-xs text-center py-8" style={{ color: "#5B6B60" }}>Nenhum relatório salvo ainda.</p>}
+          <div className="space-y-3">
+            {savedReports.map(r => (
+              <div key={r.id} className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: "#014A1F" }}>{r.title}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "#5B6B60" }}>{new Date(r.createdAt + "T12:00:00").toLocaleDateString("pt-BR")} · {r.createdBy} · {r.totalLegendas} legendas</p>
+                  </div>
+                  <button onClick={() => exportPDF(r.title, r.createdAt, r, r.insights)}
+                    className="text-[11px] px-2 py-1 rounded border flex items-center gap-1"
+                    style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>
+                    <Download size={11} /> PDF
+                  </button>
+                </div>
+                <div className="flex gap-4 mt-3">
+                  {[["SEO", r.avgSEO, "#01652A"], ["Tom", r.avgTom, "#0A66C2"], ["Orig.", r.avgOrig, "#7C3AED"]].map(([l, v, col]) => (
+                    <div key={l}><p className="text-[10px]" style={{ color: "#5B6B60" }}>{l}</p><p className="text-sm font-bold" style={{ color: col }}>{v}</p></div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view === "new" && <>
+      {/* Botão gerar relatório */}
+      <button
+        onClick={generateReport}
+        disabled={loading || items.length === 0}
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white mb-4 flex items-center justify-center gap-2 disabled:opacity-50"
+        style={{ background: "#01652A" }}
+      >
+        {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando insights...</> : <><BarChart3 size={16} /> Gerar relatório com insights</>}
+      </button>
+
+      {/* Relatório gerado */}
+      {report && (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <button onClick={() => setShowSaveModal(true)}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5"
+              style={{ background: "#01652A" }}>
+              <Bookmark size={13} /> Salvar relatório
+            </button>
+            <button onClick={() => exportPDF("Relatório " + bu.label, new Date().toISOString().split("T")[0], reportMeta, report)}
+              className="flex-1 py-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5"
+              style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>
+              <Download size={13} /> Exportar PDF
+            </button>
+          </div>
+          {report.resumo_executivo && (
+            <div className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2", borderLeft: "3px solid #01652A" }}>
+              <p className="text-xs font-semibold mb-1" style={{ color: "#014A1F" }}>Resumo executivo</p>
+              <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{report.resumo_executivo}</p>
+            </div>
+          )}
+          {[
+            { key: "pontos_fortes", label: "✓ Pontos fortes", color: "#166534" },
+            { key: "pontos_melhoria", label: "↑ Oportunidades de melhoria", color: "#92400E" },
+            { key: "insights", label: "💡 Insights", color: "#1e40af" },
+            { key: "recomendacoes", label: "→ Recomendações", color: "#5B6B60" },
+          ].map(({ key, label, color }) => report[key]?.length > 0 && (
+            <div key={key} className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+              <p className="text-xs font-semibold mb-2" style={{ color }}>{label}</p>
+              {report[key].map((item, i) => (
+                <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: "#16241A" }}>· {item}</p>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      </>}
+
+      {/* Modal salvar relatório */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <p className="text-sm font-semibold mb-4" style={{ color: "#014A1F" }}>Salvar relatório</p>
+            <label className="text-xs font-semibold block mb-1" style={{ color: "#5B6B60" }}>Título do relatório *</label>
+            <input type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
+              placeholder="Ex: Relatório Q2 RAC Brasil" maxLength={80}
+              className="w-full border rounded-lg px-3 py-2 text-sm mb-4" style={{ borderColor: "#E1E8E2" }} autoFocus />
+            <label className="text-xs font-semibold block mb-1" style={{ color: "#5B6B60" }}>Data de criação *</label>
+            <input type="date" value={saveDate} onChange={e => setSaveDate(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm mb-4" style={{ borderColor: "#E1E8E2" }} />
+            <div className="flex gap-2">
+              <button onClick={() => setShowSaveModal(false)} className="flex-1 py-2 rounded-lg text-xs border" style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>Cancelar</button>
+              <button onClick={saveReport} disabled={!saveTitle.trim()}
+                className="flex-1 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+                style={{ background: "#01652A" }}>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [unlocked, setUnlocked] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -893,7 +1213,7 @@ export default function App() {
   const [page, setPage] = useState(() => {
     try {
       const p = new URLSearchParams(window.location.search).get("page");
-      return ["compose","style","presets-list","library","admin"].includes(p) ? p : "compose";
+      return ["compose","style","presets-list","library","admin","report"].includes(p) ? p : "compose";
     } catch { return "compose"; }
   });
 
@@ -2302,6 +2622,14 @@ data-onboard="library-btn"
             Legendas salvas
           </button>
 
+          <button
+            onClick={() => setPageWithOnboard("report")}
+            className={`ls-nav-item w-full flex items-center gap-2.5 pl-4 pr-3 py-2.5 rounded-lg text-sm font-medium ${page === "report" ? "active" : "text-white/85"}`}
+          >
+            <BarChart3 size={15} />
+            Relatório
+          </button>
+
           {isAdminUser(currentUser) && (
             <button
               onClick={() => setPage("admin")}
@@ -2372,7 +2700,7 @@ data-onboard="library-btn"
             <div>
               <p className="text-[11px] font-medium tracking-wide" style={{ color: MUTED }}>{bu.label}</p>
               <h2 className="text-lg font-semibold">
-                {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : "Legendas salvas"}
+                {page === "compose" ? "Nova legenda" : page === "style" ? "Estilo geral da marca" : page === "presets-list" ? "Estilos criados" : page === "admin" ? "Painel Admin" : page === "report" ? "Relatório" : "Legendas salvas"}
               </h2>
             </div>
             <div className="relative">
@@ -2827,6 +3155,16 @@ data-onboard="library-btn"
             </div>
           )}
 
+          {page === "report" && (
+            <ReportPage
+              buLibrary={buLibrary}
+              bu={bu}
+              currentUser={currentUser}
+              callAI={callAI}
+              storageAPI={storageAPI}
+            />
+          )}
+
           {page === "admin" && isAdminUser(currentUser) && (
             <div>
               <h2 className="text-lg font-semibold mb-1" style={{ color: GREEN_DARK }}>Painel Admin</h2>
@@ -3175,7 +3513,9 @@ data-onboard="library-btn"
                               onClick={() => {
                                 const updated = buLibrary.map(x => x.id === c.id ? { ...x, destaqueTitle: !x.destaqueTitle } : x);
                                 setLibrary(prev => ({ ...prev, [activeBU]: updated }));
-                                storage.set(`captions:${activeBU}`, JSON.stringify(updated));
+                                localStorage.setItem(`captions-cache:${activeBU}`, JSON.stringify(updated));
+                                const cap = buLibrary.find(x => x.id === c.id);
+                                if (cap) storageAPI({ action: "saveCaption", caption: { ...cap, destaqueTitle: !cap.destaqueTitle } }).catch(() => {});
                               }}
                             >
                               <Star size={14} fill={c.destaqueTitle ? LIME : "none"} style={{ color: c.destaqueTitle ? LIME : MUTED }} />
