@@ -1402,7 +1402,8 @@ export default function App() {
 
   // Busca na biblioteca
   const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryFilter, setLibraryFilter] = useState("all"); // all | instagram | linkedin | tiktok | youtube | destaque
+  const [libraryFilter, setLibraryFilter] = useState("all"); // all | instagram | linkedin | tiktok | youtube
+  const [libraryType, setLibraryType] = useState("all"); // all | legendas | titulos | destaque-legendas | destaque-titulos
 
   // Calendário
   const [calMonth, setCalMonth] = useState(() => {
