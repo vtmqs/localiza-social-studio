@@ -80,10 +80,19 @@ export default async function handler(req, res) {
       const rows = await sheetsGet(token, "Users!A2:D");
       const existing = rows.find((r) => r[0] === hash);
       const role = userEmail === OWNER_EMAIL ? "owner" : "user";
-      if (!existing) await sheetsAppend(token, [[hash, name, userEmail || "", role]], "Users");
-      else if (existing[3] !== role && userEmail === OWNER_EMAIL) {
-        const rowIdx = rows.indexOf(existing);
-        await sheetsUpdate(token, `Users!D${rowIdx + 2}`, [["owner"]]);
+      if (!existing) {
+        await sheetsAppend(token, [[hash, name, userEmail || "", role]], "Users");
+      } else {
+        // Atualiza role se mudou (ex: owner logando em dispositivo novo)
+        if (existing[3] !== role) {
+          const rowIdx = rows.indexOf(existing);
+          await sheetsUpdate(token, `Users!D${rowIdx + 2}`, [[role]]);
+        }
+        // Atualiza email se estava vazio
+        if (!existing[2] && userEmail) {
+          const rowIdx = rows.indexOf(existing);
+          await sheetsUpdate(token, `Users!C${rowIdx + 2}`, [[userEmail]]);
+        }
       }
       res.status(200).json({ ok: true, user: { hash, name, email: userEmail || "", role } });
       return;
@@ -256,6 +265,34 @@ export default async function handler(req, res) {
       const rowIdx = rows.findIndex(r => r[0] === captionId);
       if (rowIdx >= 0) await sheetsClear(token, `Captions!A${rowIdx + 2}:P${rowIdx + 2}`);
       res.status(200).json({ ok: true });
+      return;
+    }
+
+    // ---- RELATÓRIOS ----
+    if (action === "saveReport") {
+      const { report } = req.body;
+      const row = [
+        report.id, report.title, report.bu, report.createdBy,
+        report.createdAt, report.period, report.totalLegendas,
+        report.avgSEO, report.avgTom, report.avgOrig,
+        JSON.stringify(report.byPlatform || {}),
+        JSON.stringify(report.insights || {}),
+      ];
+      await sheetsAppend(token, [row], "Reports");
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    if (action === "listReports") {
+      const rows = await sheetsGet(token, "Reports!A2:L");
+      const reports = rows.filter(r => r[0] && r[2] === bu).map(r => ({
+        id: r[0], title: r[1], bu: r[2], createdBy: r[3],
+        createdAt: r[4], period: r[5], totalLegendas: r[6],
+        avgSEO: r[7], avgTom: r[8], avgOrig: r[9],
+        byPlatform: r[10] ? JSON.parse(r[10]) : {},
+        insights: r[11] ? (() => { try { return JSON.parse(r[11]); } catch { return {}; } })() : {},
+      })).reverse();
+      res.status(200).json({ reports });
       return;
     }
 
