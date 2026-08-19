@@ -3536,7 +3536,22 @@ data-onboard="library-btn"
               <p className="text-sm mb-2" style={{ color: MUTED }}>
                 Legendas salvas de {bu.label}. As destacadas (⭐) têm mais peso como exemplo pra próxima geração.
 
-                <div className="flex flex-wrap gap-2 mt-4 mb-2">
+                <div className="flex flex-wrap gap-1.5 mt-4 mb-2">
+                  {[
+                    ["all", "Tudo"],
+                    ["legendas", "Legendas"],
+                    ["titulos", "Títulos YT"],
+                    ["destaque-legendas", "⭐ Legendas"],
+                    ["destaque-titulos", "⭐ Títulos"],
+                  ].map(([v, l]) => (
+                    <button key={v} onClick={() => setLibraryType(v)}
+                      className="text-xs px-3 py-1.5 rounded-full border font-medium transition-colors"
+                      style={libraryType === v ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: BORDER, color: MUTED, background: "#FFFFFF" }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
                   <input
                     type="text"
                     value={librarySearch}
@@ -3556,7 +3571,6 @@ data-onboard="library-btn"
                     <option value="linkedin">LinkedIn</option>
                     <option value="tiktok">TikTok</option>
                     <option value="youtube">YouTube</option>
-                    <option value="destaque">⭐ Destacadas</option>
                   </select>
                   <button
                     onClick={() => setCalView(v => !v)}
@@ -3687,7 +3701,13 @@ data-onboard="library-btn"
               ) : (
                 <div className="space-y-3">
                   {buLibrary.filter(c => {
-                    if (libraryFilter === "destaque") return c.destaque;
+                    // Filtro por tipo
+                    if (libraryType === "legendas") return !!c.legenda;
+                    if (libraryType === "titulos") return !!c.titulo_youtube;
+                    if (libraryType === "destaque-legendas") return c.destaque && !!c.legenda;
+                    if (libraryType === "destaque-titulos") return c.destaqueTitle && !!c.titulo_youtube;
+                    return true;
+                  }).filter(c => {
                     if (libraryFilter !== "all") return c.platform === libraryFilter;
                     return true;
                   }).filter(c => {
@@ -3740,6 +3760,23 @@ data-onboard="library-btn"
                         <div className="text-sm leading-relaxed" style={{ color: TEXT }}>
                           {renderLegenda(c.legenda)}
                         </div>
+
+                        {/* Métricas */}
+                        {(c.seoScore > 0 || c.toneScore > 0 || c.originalScore > 0) && (
+                          <div className="flex gap-2 mt-2">
+                            {[["SEO", c.seoScore, "#01652A"], ["Tom", c.toneScore, "#0A66C2"], ["Orig.", c.originalScore || 0, "#7C3AED"]].map(([l, v, col]) => {
+                              const bg = v >= 75 ? "#F0FFF4" : v >= 50 ? "#FFFBEB" : "#FFF1F2";
+                              const tc = v >= 75 ? col : v >= 50 ? "#d97706" : "#dc2626";
+                              return (
+                                <div key={l} className="flex items-center gap-1 rounded-full px-2 py-0.5" style={{ background: bg }}>
+                                  <span className="text-[10px] font-semibold" style={{ color: tc }}>{v}</span>
+                                  <span className="text-[9px]" style={{ color: MUTED }}>{l}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {c.publishDate && (
                           <p className="text-[11px] mt-1.5 flex items-center gap-1" style={{ color: MUTED }}>
                             <Calendar size={11} />
