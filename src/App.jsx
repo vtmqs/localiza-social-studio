@@ -785,7 +785,7 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
   const [selected, setSelected] = React.useState("destaque");
   const [manualIds, setManualIds] = React.useState([]);
   const [report, setReport] = React.useState(null);
-  const [reportMeta, setReportMeta] = React.useState(null); // { title, createdAt, avgSEO, avgTom, avgOrig, ... }
+  const [reportMeta, setReportMeta] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [period, setPeriod] = React.useState("all");
   const [showSaveModal, setShowSaveModal] = React.useState(false);
@@ -793,7 +793,7 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
   const [saveDate, setSaveDate] = React.useState(new Date().toISOString().split("T")[0]);
   const [savedReports, setSavedReports] = React.useState([]);
   const [loadingReports, setLoadingReports] = React.useState(false);
-  const [view, setView] = React.useState("new"); // "new" | "history"
+  const [view, setView] = React.useState("new");
 
   const filterByPeriod = (items) => {
     if (period === "all") return items;
@@ -811,11 +811,11 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
 
   const items = getItems();
   const withScores = items.filter(c => c.seoScore > 0 || c.toneScore > 0);
-
   const avg = (arr, fn) => arr.length ? Math.round(arr.reduce((s, x) => s + (fn(x) || 0), 0) / arr.length) : 0;
   const avgSEO = avg(withScores, c => c.seoScore);
   const avgTom = avg(withScores, c => c.toneScore);
   const avgOrig = avg(withScores, c => c.originalScore || 0);
+  const notaGeral = Math.round((avgSEO + avgTom + avgOrig) / 3);
 
   const byPlatform = {};
   items.forEach(c => {
@@ -823,21 +823,71 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
     byPlatform[c.platform].push(c);
   });
 
+  // Top e bottom legendas
+  const sorted = [...withScores].sort((a, b) => ((b.seoScore + b.toneScore + (b.originalScore||0))/3) - ((a.seoScore + a.toneScore + (a.originalScore||0))/3));
+  const topLegendas = sorted.slice(0, 3);
+  const bottomLegendas = sorted.slice(-3).reverse().filter(x => !topLegendas.includes(x));
+
+  // Keywords mais usadas
+  const kwCount = {};
+  items.forEach(c => {
+    (c.hashtags || []).forEach(h => {
+      const k = h.replace(/^#/, "").toLowerCase();
+      kwCount[k] = (kwCount[k] || 0) + 1;
+    });
+  });
+  const topKws = Object.entries(kwCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // Nota por cor
+  const scoreColor = (v) => v >= 75 ? "#01652A" : v >= 50 ? "#d97706" : "#dc2626";
+  const scoreBg = (v) => v >= 75 ? "#F0FFF4" : v >= 50 ? "#FFFBEB" : "#FFF1F2";
+  const scoreLabel = (v) => v >= 75 ? "Bom" : v >= 50 ? "Regular" : "Precisa melhorar";
+
   const generateReport = async () => {
     if (items.length === 0) return;
     setLoading(true);
     try {
-      const sample = items.slice(0, 8).map(c => `[${c.platform}] SEO:${c.seoScore} Tom:${c.toneScore} Orig:${c.originalScore || 0} "${(c.topico || c.legenda || "").slice(0, 60)}"`).join("\n");
+      const kwList = topKws.map(([k, n]) => `${k} (${n}x)`).join(", ");
+      const platInfo = Object.entries(byPlatform).map(([p, arr]) => `${p}: ${arr.length} legendas, SEO ${avg(arr, c => c.seoScore)}, Tom ${avg(arr, c => c.toneScore)}, Orig ${avg(arr, c => c.originalScore||0)}`).join("; ");
+      const sample = topLegendas.map(c => `[${c.platform}] SEO:${c.seoScore} Tom:${c.toneScore} Orig:${c.originalScore||0} - "${(c.topico||c.legenda||"").slice(0,80)}"`).join("\n");
       const { text } = await callAI({
-        system: "Você é analista de conteúdo digital. Analise os dados de legendas e gere um relatório executivo em JSON com insights reais e acionáveis. Retorne SOMENTE JSON válido.",
-        prompt: `Relatório de ${items.length} legendas da BU ${bu.label}:\n\nMédias: SEO ${avgSEO}/100, Tom ${avgTom}/100, Originalidade ${avgOrig}/100\nPor rede: ${Object.entries(byPlatform).map(([p, arr]) => `${p}: ${arr.length} legendas, SEO médio ${avg(arr, c => c.seoScore)}`).join(", ")}\n\nAmostra:\n${sample}\n\nRetorne:\n{"pontos_fortes": ["..."], "pontos_melhoria": ["..."], "insights": ["..."], "recomendacoes": ["..."], "resumo_executivo": "..."}`,
+        system: "Você é analista sênior de conteúdo digital e SEO para redes sociais. Gere uma análise profissional, específica e acionável em JSON. Seja direto e crítico — evite generalidades. Retorne SOMENTE JSON válido.",
+        prompt: `RELATÓRIO DE CONTEÚDO — BU: ${bu.label}
+Período: ${period === "all" ? "Todo o histórico" : `Últimos ${period} dias`}
+Total de legendas analisadas: ${items.length} | Com scores: ${withScores.length}
+
+SCORES MÉDIOS:
+• SEO: ${avgSEO}/100 (${scoreLabel(avgSEO)})
+• Tom de marca: ${avgTom}/100 (${scoreLabel(avgTom)})
+• Originalidade: ${avgOrig}/100 (${scoreLabel(avgOrig)})
+• Nota geral: ${notaGeral}/100
+
+POR PLATAFORMA: ${platInfo}
+
+HASHTAGS/KWS MAIS USADAS: ${kwList || "nenhuma"}
+
+TOP LEGENDAS:
+${sample}
+
+Retorne este JSON com análise real baseada nos dados acima:
+{
+  "resumo_executivo": "2-3 frases diretas sobre o estado do conteúdo com dados concretos",
+  "diagnostico_seo": "análise específica do SEO com o que está funcionando e o que não está",
+  "diagnostico_tom": "análise do alinhamento com a marca com exemplos concretos",
+  "diagnostico_originalidade": "análise da criatividade e originalidade observada",
+  "pontos_fortes": ["ponto específico com dado", "ponto específico com dado", "ponto específico com dado"],
+  "pontos_melhoria": ["oportunidade específica com ação sugerida", "oportunidade específica com ação sugerida", "oportunidade específica com ação sugerida"],
+  "recomendacoes_praticas": [{"titulo": "ação curta", "detalhe": "como implementar especificamente"}, {"titulo": "ação curta", "detalhe": "como implementar especificamente"}, {"titulo": "ação curta", "detalhe": "como implementar especificamente"}],
+  "plataforma_destaque": "qual plataforma está performando melhor e por quê",
+  "plataforma_atencao": "qual plataforma precisa de mais atenção e por quê"
+}`,
         useSearch: false,
       });
       const clean = text.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(clean);
       setReport(parsed);
-      setReportMeta({ avgSEO, avgTom, avgOrig, byPlatform, totalLegendas: items.length, period });
-    } catch { setReport(null); }
+      setReportMeta({ avgSEO, avgTom, avgOrig, notaGeral, byPlatform, totalLegendas: items.length, period, topKws, topLegendas, bottomLegendas });
+    } catch(e) { console.error(e); setReport(null); }
     setLoading(false);
   };
 
@@ -853,142 +903,90 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
   const saveReport = async () => {
     if (!saveTitle.trim()) return;
     const entry = {
-      id: `${Date.now()}`,
-      title: saveTitle.trim(),
-      bu: bu.id,
-      createdBy: currentUser?.name || "Anônimo",
-      createdAt: saveDate,
-      period,
+      id: `${Date.now()}`, title: saveTitle.trim(), bu: bu.id,
+      createdBy: currentUser?.name || "Anônimo", createdAt: saveDate, period,
       totalLegendas: reportMeta?.totalLegendas || 0,
-      avgSEO: reportMeta?.avgSEO || 0,
-      avgTom: reportMeta?.avgTom || 0,
-      avgOrig: reportMeta?.avgOrig || 0,
-      byPlatform: reportMeta?.byPlatform || {},
-      insights: report || {},
+      avgSEO: reportMeta?.avgSEO || 0, avgTom: reportMeta?.avgTom || 0,
+      avgOrig: reportMeta?.avgOrig || 0, notaGeral: reportMeta?.notaGeral || 0,
+      byPlatform: reportMeta?.byPlatform || {}, insights: report || {},
     };
     try {
       await storageAPI({ action: "saveReport", report: entry, bu: bu.id });
-      setShowSaveModal(false);
-      setSaveTitle("");
+      setShowSaveModal(false); setSaveTitle("");
     } catch {}
   };
 
   const exportPDF = (title, date, meta, insights) => {
-    const html = `
-      <html><head><meta charset="utf-8"><title>${title}</title>
-      <style>
-        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; color: #16241A; }
-        h1 { color: #01652A; font-size: 22px; }
-        h2 { color: #014A1F; font-size: 15px; margin-top: 24px; }
-        .meta { color: #5B6B60; font-size: 12px; margin-bottom: 24px; }
-        .scores { display: flex; gap: 24px; margin: 16px 0; }
-        .score { text-align: center; }
-        .score-num { font-size: 28px; font-weight: 700; color: #01652A; }
-        .score-label { font-size: 11px; color: #5B6B60; }
-        ul { margin: 8px 0; padding-left: 20px; }
-        li { font-size: 13px; margin-bottom: 4px; }
-        .summary { background: #F6F9F6; border-left: 3px solid #01652A; padding: 12px 16px; margin: 16px 0; font-size: 13px; }
-        @media print { button { display: none; } }
-      </style></head><body>
-      <h1>${title}</h1>
-      <div class="meta">BU: ${bu.label} &nbsp;·&nbsp; Criado por: ${currentUser?.name || "–"} &nbsp;·&nbsp; Data: ${new Date(date + "T12:00:00").toLocaleDateString("pt-BR")}</div>
-      ${insights?.resumo_executivo ? `<div class="summary">${insights.resumo_executivo}</div>` : ""}
-      <div class="scores">
-        <div class="score"><div class="score-num">${meta?.avgSEO || 0}</div><div class="score-label">SEO médio</div></div>
-        <div class="score"><div class="score-num">${meta?.avgTom || 0}</div><div class="score-label">Tom médio</div></div>
-        <div class="score"><div class="score-num">${meta?.avgOrig || 0}</div><div class="score-label">Orig. médio</div></div>
-        <div class="score"><div class="score-num">${meta?.totalLegendas || 0}</div><div class="score-label">Legendas</div></div>
-      </div>
-      ${insights?.pontos_fortes?.length ? `<h2>✓ Pontos fortes</h2><ul>${insights.pontos_fortes.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
-      ${insights?.pontos_melhoria?.length ? `<h2>↑ Oportunidades de melhoria</h2><ul>${insights.pontos_melhoria.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
-      ${insights?.insights?.length ? `<h2>💡 Insights</h2><ul>${insights.insights.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
-      ${insights?.recomendacoes?.length ? `<h2>→ Recomendações</h2><ul>${insights.recomendacoes.map(p => `<li>${p}</li>`).join("")}</ul>` : ""}
-      </body></html>`;
+    const platRows = Object.entries(meta?.byPlatform || {}).map(([p, arr]) => {
+      const s = (fn) => arr.length ? Math.round(arr.reduce((s,x)=>s+(fn(x)||0),0)/arr.length) : 0;
+      return `<tr><td>${p}</td><td>${arr.length}</td><td style="color:${scoreColor(s(c=>c.seoScore))}">${s(c=>c.seoScore)}</td><td style="color:${scoreColor(s(c=>c.toneScore))}">${s(c=>c.toneScore)}</td><td style="color:${scoreColor(s(c=>c.originalScore||0))}">${s(c=>c.originalScore||0)}</td></tr>`;
+    }).join("");
+    const kwRows = (meta?.topKws||[]).map(([k,n])=>`<span style="display:inline-block;margin:2px;padding:2px 8px;background:#EAF9DC;border-radius:12px;font-size:11px">#${k} <b>${n}x</b></span>`).join("");
+    const html = `<html><head><meta charset="utf-8"><title>${title}</title><style>
+      *{box-sizing:border-box} body{font-family:Arial,sans-serif;max-width:760px;margin:32px auto;color:#16241A;font-size:13px}
+      h1{color:#01652A;font-size:22px;margin-bottom:4px} .meta{color:#5B6B60;font-size:11px;margin-bottom:24px}
+      h2{color:#014A1F;font-size:13px;font-weight:700;margin:20px 0 8px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #E1E8E2;padding-bottom:4px}
+      .scores{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+      .score-card{background:#F6F9F6;border-radius:10px;padding:12px;text-align:center}
+      .score-num{font-size:32px;font-weight:800} .score-label{font-size:10px;color:#5B6B60;text-transform:uppercase}
+      .score-tag{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;margin-top:4px;display:inline-block}
+      table{width:100%;border-collapse:collapse;font-size:12px} th{background:#F6F9F6;padding:6px 8px;text-align:left;font-size:11px;color:#5B6B60}
+      td{padding:6px 8px;border-bottom:1px solid #F0F4F3} .bar-wrap{background:#E1E8E2;border-radius:4px;height:6px;width:100px;display:inline-block}
+      .bar{height:6px;border-radius:4px;display:block} ul{margin:6px 0;padding-left:18px} li{margin-bottom:4px}
+      .summary{background:#F0FFF4;border-left:3px solid #01652A;padding:10px 14px;border-radius:4px;font-size:13px;margin:12px 0}
+      .rec-card{background:#F6F9F6;border-radius:8px;padding:10px 12px;margin-bottom:8px}
+      .rec-title{font-weight:700;font-size:12px;color:#01652A} .rec-detail{font-size:11px;color:#5B6B60;margin-top:2px}
+      .diag{background:#FAFCFA;border:1px solid #E1E8E2;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:12px}
+      .top-leg{background:#F6F9F6;border-radius:8px;padding:8px 12px;margin-bottom:6px}
+      .leg-scores{display:flex;gap:8px;margin-top:4px} .leg-score{font-size:11px;font-weight:700}
+      @media print{button{display:none!important}}
+    </style></head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><h1>${title}</h1><div class="meta">${bu?.label||""} &nbsp;·&nbsp; ${currentUser?.name||"–"} &nbsp;·&nbsp; ${new Date((date||new Date().toISOString().split("T")[0])+"T12:00:00").toLocaleDateString("pt-BR")} &nbsp;·&nbsp; ${meta?.totalLegendas||0} legendas analisadas</div></div>
+    </div>
+    ${insights?.resumo_executivo?`<div class="summary">${insights.resumo_executivo}</div>`:""}
+    <h2>Notas gerais</h2>
+    <div class="scores">
+      <div class="score-card"><div class="score-num" style="color:#01652A">${meta?.notaGeral||0}</div><div class="score-label">Nota Geral</div><div class="score-tag" style="background:${scoreBg(meta?.notaGeral||0)};color:${scoreColor(meta?.notaGeral||0)}">${scoreLabel(meta?.notaGeral||0)}</div></div>
+      <div class="score-card"><div class="score-num" style="color:${scoreColor(meta?.avgSEO||0)}">${meta?.avgSEO||0}</div><div class="score-label">SEO</div><div class="score-tag" style="background:${scoreBg(meta?.avgSEO||0)};color:${scoreColor(meta?.avgSEO||0)}">${scoreLabel(meta?.avgSEO||0)}</div></div>
+      <div class="score-card"><div class="score-num" style="color:${scoreColor(meta?.avgTom||0)}">${meta?.avgTom||0}</div><div class="score-label">Tom de marca</div><div class="score-tag" style="background:${scoreBg(meta?.avgTom||0)};color:${scoreColor(meta?.avgTom||0)}">${scoreLabel(meta?.avgTom||0)}</div></div>
+      <div class="score-card"><div class="score-num" style="color:${scoreColor(meta?.avgOrig||0)}">${meta?.avgOrig||0}</div><div class="score-label">Originalidade</div><div class="score-tag" style="background:${scoreBg(meta?.avgOrig||0)};color:${scoreColor(meta?.avgOrig||0)}">${scoreLabel(meta?.avgOrig||0)}</div></div>
+    </div>
+    ${Object.keys(meta?.byPlatform||{}).length>0?`<h2>Por plataforma</h2><table><tr><th>Rede</th><th>Legendas</th><th>SEO</th><th>Tom</th><th>Orig.</th></tr>${platRows}</table>`:""}
+    ${(meta?.topKws||[]).length>0?`<h2>Hashtags & keywords mais usadas</h2><div style="margin:8px 0">${kwRows}</div>`:""}
+    ${insights?.diagnostico_seo||insights?.diagnostico_tom?`<h2>Diagnóstico</h2>${insights.diagnostico_seo?`<div class="diag"><b style="color:#01652A">SEO:</b> ${insights.diagnostico_seo}</div>`:""}${insights.diagnostico_tom?`<div class="diag"><b style="color:#0A66C2">Tom de marca:</b> ${insights.diagnostico_tom}</div>`:""}${insights.diagnostico_originalidade?`<div class="diag"><b style="color:#7C3AED">Originalidade:</b> ${insights.diagnostico_originalidade}</div>`:""}`:""}
+    ${(meta?.topLegendas||[]).length>0?`<h2>Melhores legendas do período</h2>${(meta.topLegendas).map((c,i)=>`<div class="top-leg"><div style="font-size:10px;color:#5B6B60;text-transform:uppercase">#${i+1} · ${c.platform}</div><div style="font-size:12px;margin:4px 0">${(c.topico||c.legenda||"").slice(0,100)}</div><div class="leg-scores"><span class="leg-score" style="color:#01652A">SEO ${c.seoScore}</span><span class="leg-score" style="color:#0A66C2">Tom ${c.toneScore}</span><span class="leg-score" style="color:#7C3AED">Orig ${c.originalScore||0}</span></div></div>`).join("")}`:""}
+    ${insights?.pontos_fortes?.length?`<h2>✓ Pontos fortes</h2><ul>${insights.pontos_fortes.map(p=>`<li>${p}</li>`).join("")}</ul>`:""}
+    ${insights?.pontos_melhoria?.length?`<h2>↑ Oportunidades de melhoria</h2><ul>${insights.pontos_melhoria.map(p=>`<li>${p}</li>`).join("")}</ul>`:""}
+    ${insights?.recomendacoes_praticas?.length?`<h2>→ Recomendações práticas</h2>${insights.recomendacoes_praticas.map(r=>`<div class="rec-card"><div class="rec-title">${r.titulo||r}</div>${r.detalhe?`<div class="rec-detail">${r.detalhe}</div>`:""}</div>`).join("")}`:""}
+    ${insights?.plataforma_destaque||insights?.plataforma_atencao?`<h2>Plataformas</h2>${insights.plataforma_destaque?`<div class="diag"><b style="color:#01652A">⭐ Destaque:</b> ${insights.plataforma_destaque}</div>`:""}${insights.plataforma_atencao?`<div class="diag"><b style="color:#d97706">⚠ Atenção:</b> ${insights.plataforma_atencao}</div>`:""}`:""}
+    </body></html>`;
     const w = window.open("", "_blank");
     w.document.write(html);
     w.document.close();
-    setTimeout(() => w.print(), 500);
+    setTimeout(() => w.print(), 600);
   };
 
-  const ScoreBar = ({ label, value, color }) => (
-    <div className="mb-3">
-      <div className="flex justify-between text-xs mb-1">
-        <span style={{ color: "#5B6B60" }}>{label}</span>
-        <span className="font-bold" style={{ color }}>{value}/100</span>
+  const ScoreGauge = ({ label, value, color }) => (
+    <div className="bg-white rounded-xl border p-4 text-center" style={{ borderColor: "#E1E8E2" }}>
+      <div className="text-3xl font-black mb-1" style={{ color }}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>{label}</div>
+      <div className="h-1.5 rounded-full mx-auto" style={{ background: "#E1E8E2", maxWidth: 60 }}>
+        <div className="h-1.5 rounded-full" style={{ width: `${value}%`, background: color }} />
       </div>
-      <div className="h-2 rounded-full" style={{ background: "#E1E8E2" }}>
-        <div className="h-2 rounded-full transition-all" style={{ width: `${value}%`, background: color }} />
+      <div className="text-[10px] font-semibold mt-1.5 px-2 py-0.5 rounded-full inline-block" style={{ background: scoreBg(value), color: scoreColor(value) }}>
+        {scoreLabel(value)}
       </div>
     </div>
   );
 
   return (
     <div>
-      <p className="text-sm mb-5" style={{ color: "#5B6B60" }}>Métricas de qualidade das legendas de {bu.label}.</p>
+      <p className="text-sm mb-4" style={{ color: "#5B6B60" }}>Métricas e análise de qualidade das legendas de {bu.label}.</p>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-xl border p-4 mb-4" style={{ borderColor: "#E1E8E2" }}>
-        <p className="text-xs font-semibold mb-3" style={{ color: "#5B6B60" }}>Quais legendas incluir</p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {[["destaque", "⭐ Destacadas"], ["all", "Todas"], ["manual", "Selecionar manualmente"]].map(([v, l]) => (
-            <button key={v} onClick={() => setSelected(v)} className="text-xs px-3 py-1.5 rounded-lg border font-medium"
-              style={selected === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Período</p>
-        <div className="flex gap-2">
-          {[["all", "Todo o histórico"], ["90", "Últimos 90 dias"], ["30", "Últimos 30 dias"]].map(([v, l]) => (
-            <button key={v} onClick={() => setPeriod(v)} className="text-xs px-3 py-1.5 rounded-lg border"
-              style={period === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
-              {l}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Seleção manual */}
-      {selected === "manual" && (
-        <div className="bg-white rounded-xl border p-4 mb-4 max-h-52 overflow-y-auto" style={{ borderColor: "#E1E8E2" }}>
-          <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Selecione as legendas</p>
-          {filterByPeriod(buLibrary).map(c => (
-            <label key={c.id} className="flex items-start gap-2 py-1.5 border-b cursor-pointer" style={{ borderColor: "#F0F4F3" }}>
-              <input type="checkbox" checked={manualIds.includes(c.id)} onChange={() => setManualIds(prev => prev.includes(c.id) ? prev.filter(i => i !== c.id) : [...prev, c.id])} />
-              <div>
-                <p className="text-xs font-medium" style={{ color: "#16241A" }}>{c.topico || c.legenda?.slice(0, 50)}</p>
-                <p className="text-[10px]" style={{ color: "#5B6B60" }}>{c.platform} · SEO {c.seoScore} · Tom {c.toneScore}</p>
-              </div>
-            </label>
-          ))}
-        </div>
-      )}
-
-      {/* Resumo numérico */}
-      <div className="bg-white rounded-xl border p-4 mb-4" style={{ borderColor: "#E1E8E2" }}>
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold" style={{ color: "#5B6B60" }}>{items.length} legenda{items.length !== 1 ? "s" : ""} selecionada{items.length !== 1 ? "s" : ""}</p>
-        </div>
-        <ScoreBar label="SEO médio" value={avgSEO} color="#01652A" />
-        <ScoreBar label="Tom de marca médio" value={avgTom} color="#0A66C2" />
-        <ScoreBar label="Originalidade média" value={avgOrig} color="#7C3AED" />
-
-        {Object.keys(byPlatform).length > 0 && (
-          <div className="mt-4 pt-3 border-t" style={{ borderColor: "#E1E8E2" }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>Por rede</p>
-            {Object.entries(byPlatform).map(([plat, arr]) => (
-              <div key={plat} className="flex items-center justify-between text-xs mb-1.5">
-                <span className="capitalize" style={{ color: "#16241A" }}>{plat}</span>
-                <span style={{ color: "#5B6B60" }}>{arr.length} · SEO {avg(arr, c => c.seoScore)} · Tom {avg(arr, c => c.toneScore)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tabs novo / histórico */}
-      <div className="flex gap-2 mb-4">
-        {[["new", "Novo relatório"], ["history", "Histórico"]].map(([v, l]) => (
+      {/* Tabs */}
+      <div className="flex gap-2 mb-5">
+        {[["new", "Gerar relatório"], ["history", "Histórico"]].map(([v, l]) => (
           <button key={v} onClick={() => { setView(v); if (v === "history") loadSavedReports(); }}
             className="text-xs px-3 py-1.5 rounded-lg border font-medium"
             style={view === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>
@@ -1004,20 +1002,25 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
           <div className="space-y-3">
             {savedReports.map(r => (
               <div key={r.id} className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-semibold" style={{ color: "#014A1F" }}>{r.title}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: "#5B6B60" }}>{new Date(r.createdAt + "T12:00:00").toLocaleDateString("pt-BR")} · {r.createdBy} · {r.totalLegendas} legendas</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "#5B6B60" }}>
+                      {new Date(r.createdAt + "T12:00:00").toLocaleDateString("pt-BR")} · {r.createdBy} · {r.totalLegendas} legendas
+                    </p>
                   </div>
                   <button onClick={() => exportPDF(r.title, r.createdAt, r, r.insights)}
-                    className="text-[11px] px-2 py-1 rounded border flex items-center gap-1"
+                    className="shrink-0 text-[11px] px-2 py-1 rounded border flex items-center gap-1"
                     style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>
                     <Download size={11} /> PDF
                   </button>
                 </div>
-                <div className="flex gap-4 mt-3">
-                  {[["SEO", r.avgSEO, "#01652A"], ["Tom", r.avgTom, "#0A66C2"], ["Orig.", r.avgOrig, "#7C3AED"]].map(([l, v, col]) => (
-                    <div key={l}><p className="text-[10px]" style={{ color: "#5B6B60" }}>{l}</p><p className="text-sm font-bold" style={{ color: col }}>{v}</p></div>
+                <div className="grid grid-cols-4 gap-2 mt-3">
+                  {[["Geral", r.notaGeral||Math.round(((r.avgSEO||0)+(r.avgTom||0)+(r.avgOrig||0))/3), "#01652A"], ["SEO", r.avgSEO, "#01652A"], ["Tom", r.avgTom, "#0A66C2"], ["Orig.", r.avgOrig, "#7C3AED"]].map(([l, v, col]) => (
+                    <div key={l} className="text-center p-2 rounded-lg" style={{ background: scoreBg(v) }}>
+                      <p className="text-lg font-black" style={{ color: scoreColor(v) }}>{v}</p>
+                      <p className="text-[10px]" style={{ color: "#5B6B60" }}>{l}</p>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1026,64 +1029,210 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
         </div>
       )}
 
-      {view === "new" && <>
-      {/* Botão gerar relatório */}
-      <button
-        onClick={generateReport}
-        disabled={loading || items.length === 0}
-        className="w-full py-3 rounded-xl text-sm font-semibold text-white mb-4 flex items-center justify-center gap-2 disabled:opacity-50"
-        style={{ background: "#01652A" }}
-      >
-        {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando insights...</> : <><BarChart3 size={16} /> Gerar relatório com insights</>}
-      </button>
-
-      {/* Relatório gerado */}
-      {report && (
-        <div className="space-y-3">
-          <div className="flex gap-2">
-            <button onClick={() => setShowSaveModal(true)}
-              className="flex-1 py-2 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5"
-              style={{ background: "#01652A" }}>
-              <Bookmark size={13} /> Salvar relatório
-            </button>
-            <button onClick={() => exportPDF("Relatório " + bu.label, new Date().toISOString().split("T")[0], reportMeta, report)}
-              className="flex-1 py-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5"
-              style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>
-              <Download size={13} /> Exportar PDF
-            </button>
-          </div>
-          {report.resumo_executivo && (
-            <div className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2", borderLeft: "3px solid #01652A" }}>
-              <p className="text-xs font-semibold mb-1" style={{ color: "#014A1F" }}>Resumo executivo</p>
-              <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{report.resumo_executivo}</p>
-            </div>
-          )}
-          {[
-            { key: "pontos_fortes", label: "✓ Pontos fortes", color: "#166534" },
-            { key: "pontos_melhoria", label: "↑ Oportunidades de melhoria", color: "#92400E" },
-            { key: "insights", label: "💡 Insights", color: "#1e40af" },
-            { key: "recomendacoes", label: "→ Recomendações", color: "#5B6B60" },
-          ].map(({ key, label, color }) => report[key]?.length > 0 && (
-            <div key={key} className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
-              <p className="text-xs font-semibold mb-2" style={{ color }}>{label}</p>
-              {report[key].map((item, i) => (
-                <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: "#16241A" }}>· {item}</p>
+      {view === "new" && (
+        <div>
+          {/* Configurações */}
+          <div className="bg-white rounded-xl border p-4 mb-3" style={{ borderColor: "#E1E8E2" }}>
+            <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Incluir no relatório</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {[["destaque", "⭐ Destacadas"], ["all", "Todas"], ["manual", "Selecionar"]].map(([v, l]) => (
+                <button key={v} onClick={() => setSelected(v)} className="text-xs px-3 py-1.5 rounded-lg border"
+                  style={selected === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>{l}</button>
               ))}
             </div>
-          ))}
+            <p className="text-xs font-semibold mb-2" style={{ color: "#5B6B60" }}>Período</p>
+            <div className="flex gap-2">
+              {[["all", "Todo histórico"], ["90", "90 dias"], ["30", "30 dias"]].map(([v, l]) => (
+                <button key={v} onClick={() => setPeriod(v)} className="text-xs px-3 py-1.5 rounded-lg border"
+                  style={period === v ? { background: "#01652A", color: "#FFF", borderColor: "#01652A" } : { borderColor: "#E1E8E2", color: "#5B6B60" }}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Seleção manual */}
+          {selected === "manual" && (
+            <div className="bg-white rounded-xl border p-4 mb-3 max-h-48 overflow-y-auto" style={{ borderColor: "#E1E8E2" }}>
+              {filterByPeriod(buLibrary).map(c => (
+                <label key={c.id} className="flex items-start gap-2 py-1.5 border-b cursor-pointer" style={{ borderColor: "#F0F4F3" }}>
+                  <input type="checkbox" checked={manualIds.includes(c.id)} onChange={() => setManualIds(prev => prev.includes(c.id) ? prev.filter(i => i !== c.id) : [...prev, c.id])} />
+                  <div>
+                    <p className="text-xs" style={{ color: "#16241A" }}>{c.topico || c.legenda?.slice(0, 50)}</p>
+                    <p className="text-[10px]" style={{ color: "#5B6B60" }}>{c.platform} · SEO {c.seoScore} · Tom {c.toneScore}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {/* Preview dos dados */}
+          {items.length > 0 && (
+            <div className="mb-3">
+              <div className="grid grid-cols-4 gap-2 mb-3">
+                <ScoreGauge label="Nota geral" value={notaGeral} color="#01652A" />
+                <ScoreGauge label="SEO" value={avgSEO} color="#01652A" />
+                <ScoreGauge label="Tom" value={avgTom} color="#0A66C2" />
+                <ScoreGauge label="Orig." value={avgOrig} color="#7C3AED" />
+              </div>
+
+              {/* Por plataforma */}
+              {Object.keys(byPlatform).length > 0 && (
+                <div className="bg-white rounded-xl border p-4 mb-3" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-3" style={{ color: "#5B6B60" }}>Por plataforma</p>
+                  {Object.entries(byPlatform).map(([plat, arr]) => (
+                    <div key={plat} className="mb-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-semibold capitalize" style={{ color: "#16241A" }}>{plat}</span>
+                        <span className="text-[10px]" style={{ color: "#5B6B60" }}>{arr.length} legenda{arr.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[["SEO", avg(arr, c => c.seoScore), "#01652A"], ["Tom", avg(arr, c => c.toneScore), "#0A66C2"], ["Orig", avg(arr, c => c.originalScore||0), "#7C3AED"]].map(([l, v, col]) => (
+                          <div key={l} className="rounded px-2 py-1 text-center" style={{ background: scoreBg(v) }}>
+                            <p className="text-sm font-bold" style={{ color: scoreColor(v) }}>{v}</p>
+                            <p className="text-[9px]" style={{ color: "#5B6B60" }}>{l}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Top keywords */}
+              {topKws.length > 0 && (
+                <div className="bg-white rounded-xl border p-4 mb-3" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>Hashtags mais usadas</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {topKws.map(([k, n]) => (
+                      <span key={k} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: "#EAF9DC", color: "#014A1F" }}>
+                        #{k} <span style={{ color: "#5B6B60" }}>{n}x</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Top e bottom legendas */}
+              {topLegendas.length > 0 && (
+                <div className="bg-white rounded-xl border p-4 mb-3" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>⭐ Melhores legendas</p>
+                  {topLegendas.map((cap, i) => (
+                    <div key={cap.id} className="flex items-start gap-3 py-2 border-b last:border-0" style={{ borderColor: "#F0F4F3" }}>
+                      <span className="text-xs font-black shrink-0" style={{ color: "#01652A" }}>#{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] truncate" style={{ color: "#16241A" }}>{cap.topico || cap.legenda?.slice(0, 60)}</p>
+                        <p className="text-[10px]" style={{ color: "#5B6B60" }}>{cap.platform}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0 text-[10px] font-bold">
+                        <span style={{ color: "#01652A" }}>SEO {cap.seoScore}</span>
+                        <span style={{ color: "#0A66C2" }}>Tom {cap.toneScore}</span>
+                        <span style={{ color: "#7C3AED" }}>Orig {cap.originalScore || 0}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Botão gerar */}
+          <button onClick={generateReport} disabled={loading || items.length === 0}
+            className="w-full py-3 rounded-xl text-sm font-semibold text-white mb-4 flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ background: "#01652A" }}>
+            {loading ? <><Loader2 size={16} className="animate-spin" /> Gerando análise...</> : <><BarChart3 size={16} /> Gerar análise com insights</>}
+          </button>
+          {items.length === 0 && <p className="text-xs text-center" style={{ color: "#d97706" }}>Nenhuma legenda encontrada para os filtros selecionados.</p>}
+
+          {/* Resultado */}
+          {report && (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button onClick={() => setShowSaveModal(true)}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold text-white flex items-center justify-center gap-1.5"
+                  style={{ background: "#01652A" }}>
+                  <Bookmark size={13} /> Salvar relatório
+                </button>
+                <button onClick={() => exportPDF("Relatório " + bu.label, new Date().toISOString().split("T")[0], reportMeta, report)}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium border flex items-center justify-center gap-1.5"
+                  style={{ borderColor: "#E1E8E2", color: "#5B6B60" }}>
+                  <Download size={13} /> Exportar PDF
+                </button>
+              </div>
+
+              {report.resumo_executivo && (
+                <div className="rounded-xl p-4" style={{ background: "#F0FFF4", borderLeft: "3px solid #01652A" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: "#014A1F" }}>Resumo executivo</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{report.resumo_executivo}</p>
+                </div>
+              )}
+
+              {[
+                { key: "diagnostico_seo", label: "Diagnóstico SEO", color: "#01652A" },
+                { key: "diagnostico_tom", label: "Diagnóstico tom de marca", color: "#0A66C2" },
+                { key: "diagnostico_originalidade", label: "Diagnóstico originalidade", color: "#7C3AED" },
+              ].map(({ key, label, color }) => report[key] && (
+                <div key={key} className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color }}>{label}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{report[key]}</p>
+                </div>
+              ))}
+
+              {report.pontos_fortes?.length > 0 && (
+                <div className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#166534" }}>✓ Pontos fortes</p>
+                  {report.pontos_fortes.map((item, i) => (
+                    <div key={i} className="flex gap-2 mb-1.5">
+                      <span className="text-green-600 shrink-0 font-bold text-xs">•</span>
+                      <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{item}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {report.pontos_melhoria?.length > 0 && (
+                <div className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#92400E" }}>↑ Oportunidades de melhoria</p>
+                  {report.pontos_melhoria.map((item, i) => (
+                    <div key={i} className="flex gap-2 mb-1.5">
+                      <span className="shrink-0 font-bold text-xs" style={{ color: "#d97706" }}>•</span>
+                      <p className="text-xs leading-relaxed" style={{ color: "#16241A" }}>{item}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {report.recomendacoes_praticas?.length > 0 && (
+                <div className="bg-white rounded-xl border p-4" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#5B6B60" }}>→ Recomendações práticas</p>
+                  {report.recomendacoes_praticas.map((rec, i) => (
+                    <div key={i} className="rounded-lg p-3 mb-2" style={{ background: "#F6F9F6" }}>
+                      <p className="text-xs font-bold" style={{ color: "#01652A" }}>{rec.titulo || rec}</p>
+                      {rec.detalhe && <p className="text-[11px] mt-1" style={{ color: "#5B6B60" }}>{rec.detalhe}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(report.plataforma_destaque || report.plataforma_atencao) && (
+                <div className="bg-white rounded-xl border p-4 space-y-2" style={{ borderColor: "#E1E8E2" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "#5B6B60" }}>Plataformas</p>
+                  {report.plataforma_destaque && <div className="rounded-lg p-3" style={{ background: "#F0FFF4" }}><p className="text-[10px] font-bold" style={{ color: "#01652A" }}>⭐ Destaque</p><p className="text-xs mt-0.5" style={{ color: "#16241A" }}>{report.plataforma_destaque}</p></div>}
+                  {report.plataforma_atencao && <div className="rounded-lg p-3" style={{ background: "#FFFBEB" }}><p className="text-[10px] font-bold" style={{ color: "#d97706" }}>⚠ Atenção</p><p className="text-xs mt-0.5" style={{ color: "#16241A" }}>{report.plataforma_atencao}</p></div>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
-      </>}
 
-      {/* Modal salvar relatório */}
+      {/* Modal salvar */}
       {showSaveModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <p className="text-sm font-semibold mb-4" style={{ color: "#014A1F" }}>Salvar relatório</p>
-            <label className="text-xs font-semibold block mb-1" style={{ color: "#5B6B60" }}>Título do relatório *</label>
+            <label className="text-xs font-semibold block mb-1" style={{ color: "#5B6B60" }}>Título *</label>
             <input type="text" value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
-              placeholder="Ex: Relatório Q2 RAC Brasil" maxLength={80}
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-4" style={{ borderColor: "#E1E8E2" }} autoFocus />
+              placeholder="Ex: Relatório Q2 RAC Brasil" maxLength={80} autoFocus
+              className="w-full border rounded-lg px-3 py-2 text-sm mb-4" style={{ borderColor: "#E1E8E2" }} />
             <label className="text-xs font-semibold block mb-1" style={{ color: "#5B6B60" }}>Data de criação *</label>
             <input type="date" value={saveDate} onChange={e => setSaveDate(e.target.value)}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-4" style={{ borderColor: "#E1E8E2" }} />
@@ -1099,6 +1248,7 @@ function ReportPage({ buLibrary, bu, currentUser, callAI, storageAPI }) {
     </div>
   );
 }
+
 
 export default function App() {
   const [unlocked, setUnlocked] = useState(false);
