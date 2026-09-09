@@ -3793,13 +3793,19 @@ data-onboard="library-btn"
                     return (
                       <div key={c.id} className="ls-card bg-white border rounded-2xl p-5" style={{ borderColor: c.destaque ? LIME : BORDER }}>
                         <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: GREEN_DARK }}>
-                            <Icon size={15} />
-                            {PLATFORMS.find((pl) => pl.id === c.platform)?.label || c.platform}
-                            {c.presetTitle && (
-                              <span className="text-xs font-normal" style={{ color: MUTED }}>
-                                · {c.presetTitle}
-                              </span>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: GREEN_DARK }}>
+                              <Icon size={15} />
+                              {PLATFORMS.find((pl) => pl.id === c.platform)?.label || c.platform}
+                              {c.presetTitle && (
+                                <span className="text-xs font-normal" style={{ color: MUTED }}>· {c.presetTitle}</span>
+                              )}
+                            </div>
+                            {c.savedBy && (
+                              <p className="text-[10px]" style={{ color: MUTED }}>
+                                {c.titulo_youtube && !c.legenda ? "Título" : "Legenda"} criado por <span className="font-semibold">{c.savedBy}</span>
+                                {c.savedAt && <span> · {new Date(c.savedAt).toLocaleDateString("pt-BR")}</span>}
+                              </p>
                             )}
                           </div>
                           <div className="flex items-center gap-3">
