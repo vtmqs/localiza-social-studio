@@ -128,6 +128,19 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === "resetPassword") {
+      const { targetHash, newHash, requesterEmail } = req.body;
+      if (requesterEmail !== OWNER_EMAIL) { res.status(403).json({ error: "Sem permissão." }); return; }
+      const users = await getAllUsers(token);
+      const idx = users.findIndex(u => u.hash === targetHash);
+      if (idx < 0) { res.status(404).json({ error: "Usuário não encontrado." }); return; }
+      // Atualiza o hash (coluna A) mantendo nome, email e role
+      const u = users[idx];
+      await sheetsUpdate(token, `Users!A${u.rowIndex}`, [[newHash]]);
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     // ---- PRESETS ----
     if (action === "listPublicPresets") {
       const all = await getAllPresets(token);

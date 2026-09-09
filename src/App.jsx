@@ -1440,6 +1440,8 @@ export default function App() {
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminPresets, setAdminPresets] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
+  const [resetPwdModal, setResetPwdModal] = useState(null); // { hash, name }
+  const [resetPwdInput, setResetPwdInput] = useState("");
 
 
   // Onboarding
@@ -3448,6 +3450,13 @@ data-onboard="library-btn"
                               {u.role === "admin" ? "Revogar admin" : "Tornar admin"}
                             </button>
                             <button
+                              onClick={() => { setResetPwdModal({ hash: u.hash, name: u.name, email: u.email }); setResetPwdInput(""); }}
+                              className="text-xs px-2 py-1 rounded border"
+                              style={{ borderColor: BORDER, color: MUTED }}
+                            >
+                              Redefinir senha
+                            </button>
+                            <button
                               onClick={async () => {
                                 if (!window.confirm(`Excluir o usuário "${u.name}" definitivamente?`)) return;
                                 try {
@@ -5015,6 +5024,49 @@ Crie/otimize o título:`,
             </button>
             <button onClick={() => setScoreModal(null)} className="px-4 py-2 rounded-lg text-xs border" style={{ borderColor: BORDER, color: MUTED }}>
               Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Modal redefinir senha */}
+    {resetPwdModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: "rgba(0,0,0,0.45)" }}>
+        <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+          <p className="text-sm font-semibold mb-1" style={{ color: GREEN_DARK }}>Redefinir senha</p>
+          <p className="text-xs mb-4" style={{ color: MUTED }}>
+            Defina uma nova senha para <strong>{resetPwdModal.name}</strong>. Informe a pessoa depois.
+          </p>
+          <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Nova senha</label>
+          <input
+            type="text"
+            value={resetPwdInput}
+            onChange={e => setResetPwdInput(e.target.value)}
+            placeholder="Mínimo 6 caracteres"
+            className="w-full border rounded-lg px-3 py-2 text-sm mb-4"
+            style={{ borderColor: BORDER }}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button onClick={() => setResetPwdModal(null)} className="flex-1 py-2 rounded-lg text-xs border" style={{ borderColor: BORDER, color: MUTED }}>
+              Cancelar
+            </button>
+            <button
+              onClick={async () => {
+                if (resetPwdInput.length < 6) { alert("A senha precisa ter pelo menos 6 caracteres."); return; }
+                const newHash = hashPassword(resetPwdModal.email + "|" + resetPwdInput);
+                try {
+                  await storageAPI({ action: "resetPassword", targetHash: resetPwdModal.hash, newHash, requesterEmail: currentUser.email });
+                  alert(`Senha redefinida! Nova senha de ${resetPwdModal.name}: ${resetPwdInput}`);
+                  setResetPwdModal(null);
+                } catch (e) { alert(`Erro: ${e.message}`); }
+              }}
+              disabled={resetPwdInput.length < 6}
+              className="flex-1 py-2 rounded-lg text-xs font-semibold text-white disabled:opacity-50"
+              style={{ background: GREEN }}
+            >
+              Redefinir
             </button>
           </div>
         </div>
