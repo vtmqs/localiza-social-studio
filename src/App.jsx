@@ -1607,7 +1607,7 @@ export default function App() {
     } catch {}
     setLibraryLoaded((prev) => ({ ...prev, [buId]: true }));
     // Sincroniza com Sheets em background
-    storageAPI({ action: "listCaptions", bu: buId, requesterHash: currentUser?.hash || null, requesterRole: currentUser?.role || "user" })
+    storageAPI({ action: "listCaptions", bu: buId, requesterHash: currentUser?.hash || null, requesterRole: currentUser?.role || "user", email: currentUser?.email || "" })
       .then(data => {
         const list = data.captions || [];
         // Só substitui se o Sheets tiver pelo menos tanta coisa quanto o cache
@@ -2420,8 +2420,9 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
   const [publishDateModal, setPublishDateModal] = useState(null);
   const [publishDateInput, setPublishDateInput] = useState("");
   const [captionNameInput, setCaptionNameInput] = useState("");
+  const [captionVisibility, setCaptionVisibility] = useState("private");
 
-  const doSaveCaption = async (platformId, destaque, publishDate = "", captionName = "") => {
+  const doSaveCaption = async (platformId, destaque, publishDate = "", captionName = "", visibility = "private") => {
     const r = results?.[platformId];
     if (!r || !activeBU) return;
     setSavingCaption((prev) => ({ ...prev, [platformId]: true }));
@@ -2439,7 +2440,7 @@ Adapte e otimize a legenda acima pra cada plataforma solicitada. Gere uma versã
         toneScore: r.toneScore,
         destaque: !!destaque,
         destaqueTitle: false,
-        visibility: "private",
+        visibility: visibility || "private",
         savedBy: currentUser?.name || "Anônimo",
         userHash: currentUser?.hash || "",
         savedAt: new Date().toISOString(),
@@ -3432,19 +3433,34 @@ data-onboard="library-btn"
                           {u.email === OWNER_EMAIL ? "Proprietário" : u.role === "admin" ? "Admin" : "Usuário"}
                         </span>
                         {currentUser?.email === OWNER_EMAIL && u.email !== OWNER_EMAIL && (
-                          <button
-                            onClick={async () => {
-                              const newRole = u.role === "admin" ? "user" : "admin";
-                              try {
-                                await storageAPI({ action: "setUserRole", targetHash: u.hash, role: newRole, requesterEmail: currentUser.email });
-                                setAdminUsers(prev => prev.map(x => x.hash === u.hash ? { ...x, role: newRole } : x));
-                              } catch (e) { setError(`Erro: ${e.message}`); }
-                            }}
-                            className="text-xs px-2 py-1 rounded border"
-                            style={{ borderColor: BORDER, color: MUTED }}
-                          >
-                            {u.role === "admin" ? "Revogar admin" : "Tornar admin"}
-                          </button>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={async () => {
+                                const newRole = u.role === "admin" ? "user" : "admin";
+                                try {
+                                  await storageAPI({ action: "setUserRole", targetHash: u.hash, role: newRole, requesterEmail: currentUser.email });
+                                  setAdminUsers(prev => prev.map(x => x.hash === u.hash ? { ...x, role: newRole } : x));
+                                } catch (e) { setError(`Erro: ${e.message}`); }
+                              }}
+                              className="text-xs px-2 py-1 rounded border"
+                              style={{ borderColor: BORDER, color: MUTED }}
+                            >
+                              {u.role === "admin" ? "Revogar admin" : "Tornar admin"}
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Excluir o usuário "${u.name}" definitivamente?`)) return;
+                                try {
+                                  await storageAPI({ action: "deleteUser", targetHash: u.hash, requesterEmail: currentUser.email });
+                                  setAdminUsers(prev => prev.filter(x => x.hash !== u.hash));
+                                } catch (e) { setError(`Erro: ${e.message}`); }
+                              }}
+                              className="text-xs px-2 py-1 rounded border"
+                              style={{ borderColor: "#FCA5A5", color: "#7F1D1D" }}
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -4593,6 +4609,19 @@ Crie/otimize o título:`,
             autoFocus
           />
           <p className="text-[10px] mb-4 text-right" style={{ color: MUTED }}>{captionNameInput.length}/60</p>
+          <label className="text-xs font-semibold block mb-2" style={{ color: MUTED }}>Visibilidade</label>
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setCaptionVisibility("private")}
+              className="flex-1 py-2 rounded-lg text-xs border font-medium"
+              style={captionVisibility === "private" ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: BORDER, color: MUTED }}>
+              🔒 Privada
+            </button>
+            <button onClick={() => setCaptionVisibility("public")}
+              className="flex-1 py-2 rounded-lg text-xs border font-medium"
+              style={captionVisibility === "public" ? { background: GREEN, color: "#FFF", borderColor: GREEN } : { borderColor: BORDER, color: MUTED }}>
+              🌐 Pública (time)
+            </button>
+          </div>
           <label className="text-xs font-semibold block mb-1" style={{ color: MUTED }}>Data de publicação <span style={{ fontWeight: 400 }}>(opcional)</span></label>
           <input
             type="date"
@@ -4603,7 +4632,7 @@ Crie/otimize o título:`,
           />
           <div className="flex gap-2">
             <button
-              onClick={() => { setPublishDateModal(null); doSaveCaption(publishDateModal.platformId, publishDateModal.destaque, publishDateInput, captionNameInput); }}
+              onClick={() => { setPublishDateModal(null); doSaveCaption(publishDateModal.platformId, publishDateModal.destaque, publishDateInput, captionNameInput, captionVisibility); }}
               className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white"
               style={{ background: GREEN }}
             >

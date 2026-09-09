@@ -116,6 +116,18 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === "deleteUser") {
+      const { targetHash, requesterEmail } = req.body;
+      if (requesterEmail !== OWNER_EMAIL) { res.status(403).json({ error: "Sem permissão." }); return; }
+      const users = await getAllUsers(token);
+      const idx = users.findIndex(u => u.hash === targetHash);
+      if (idx < 0) { res.status(404).json({ error: "Usuário não encontrado." }); return; }
+      if (users[idx].email === OWNER_EMAIL) { res.status(403).json({ error: "Não é possível excluir o proprietário." }); return; }
+      await sheetsClear(token, `Users!A${users[idx].rowIndex}:D${users[idx].rowIndex}`);
+      res.status(200).json({ ok: true });
+      return;
+    }
+
     // ---- PRESETS ----
     if (action === "listPublicPresets") {
       const all = await getAllPresets(token);
