@@ -60,9 +60,14 @@ export default async function handler(req, res) {
     // ---- USUÁRIOS ----
     if (action === "checkUser") {
       const rows = await sheetsGet(token, "Users!A2:D");
-      const user = rows.find((r) => r[0] === userHash);
       const isOwner = email === OWNER_EMAIL;
-      // Se for owner mas não estiver na planilha ainda, retorna exists: true mesmo assim
+      // Busca por hash (login normal) OU por email (após reset de senha)
+      let user = rows.find((r) => r[0] === userHash);
+      if (!user && email) {
+        // Busca por email — se achar, verifica se o hash bate (senha correta)
+        const byEmail = rows.find((r) => r[2] && r[2].toLowerCase() === email.toLowerCase());
+        if (byEmail && byEmail[0] === userHash) user = byEmail;
+      }
       if (isOwner && !user) {
         res.status(200).json({ exists: true, user: { hash: userHash, name: email.split("@")[0], email, role: "owner" } });
         return;
